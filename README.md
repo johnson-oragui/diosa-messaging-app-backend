@@ -148,42 +148,48 @@ Contains project on a chatroom with fastapi and jinja templates/react
 ```
 ├── backend/                           # FastAPI backend
 │   ├── app/
-│   │   ├── __init__.py
-│   │   ├── main.py                    # FastAPI entry point
-│   │   ├── auth/
-│   │   │   ├── __init__.py
-│   │   │   ├── routes.py              # Authentication routes (login/signup)
-│   │   │   └── dependencies.py        # Authentication logic (JWT, OAuth, etc.)
-│   │   ├── chats/
-│   │   │   ├── __init__.py
-│   │   │   ├── models.py              # SQLAlchemy models (User, Chat, Message, etc.)
-│   │   │   ├── schemas.py             # Pydantic schemas for chat messages
-│   │   │   ├── routes.py              # Chat routes (message history, chat room creation, etc.)
-│   │   │   └── websocket.py           # WebSocket handlers (general, private, room)
-│   │   ├── rooms/
-│   │   │   ├── __init__.py
-│   │   │   ├── routes.py              # Routes for creating and managing rooms
-│   │   │   └── websocket.py           # WebSocket logic for room chats
-│   │   ├── users/
-│   │   │   ├── __init__.py
-│   │   │   ├── models.py              # User models and database logic
-│   │   │   ├── routes.py              # User-specific endpoints (profile, chats, etc.)
-│   │   │   └── services.py            # User services (fetch, create, update users)
-│   │   ├── database/
-│   │   │   ├── __init__.py
-│   │   │   └── session.py             # SQLAlchemy session and engine
-│   │   ├── core/
-│   │   │   ├── __init__.py
-│   │   │   ├── config.py              # App settings and configurations (env variables)
-│   │   │   ├── dependencies.py        # Common dependencies (DB, authentication)
-│   │   │   └── security.py            # Security utilities (JWT handling, password hashing)
-│   │   ├── tests/
-│   │   │   ├── test_auth.py           # Unit tests for authentication
-│   │   │   ├── test_chats.py          # Unit tests for chat functionality
-│   │   │   └── test_websocket.py      # Unit tests for WebSocket functionality
-│   │   └── utils/
-│   │       ├── __init__.py
-│   │       └── helpers.py             # Utility functions (e.g., token handling, data formatting)
+|   |   ├──v1
+│   │      ├── __init__.py
+│   │      ├── main.py                    # FastAPI entry point
+│   │      ├── auth/
+│   │      │   ├── __init__.py
+│   │      │   ├── routes.py              # Authentication routes (login/signup)
+│   │      │   └── dependencies.py        # Authentication logic (JWT, OAuth, etc.)
+│   │      ├── chats/
+│   │      │   ├── __init__.py
+│   │      │   ├── models.py              # SQLAlchemy models (User, Chat, Message, etc.)
+│   │      │   ├── schemas.py             # Pydantic schemas for chat messages
+│   │      │   ├── routes.py              # Chat routes (message history, chat room creation, etc.)
+│   │      │   └── websocket.py           # WebSocket handlers (general, private, room)
+│   │      ├── rooms/
+│   │      │   ├── __init__.py
+│   │      │   ├── models.py              # SQLAlchemy models (User, Chat, Message, etc.)
+│   │      │   ├── schemas.py             
+│   │      │   ├── routes.py              # Routes for creating and managing rooms
+│   │      │   └── websocket.py           # WebSocket logic for room chats
+│   │      ├── users/
+│   │      │   ├── __init__.py
+│   │      │   ├── models.py
+│   │      │   ├── schemas.py             # User models and database logic
+│   │      │   ├── routes.py              # User-specific endpoints (profile, chats, etc.)
+│   │      │   └── services.py            # User services (fetch, create, update users)
+│   │      ├── database/
+│   │      │   ├── __init__.py
+│   │      │   └── session.py
+│   │      │   └── redis.py             # SQLAlchemy session and engine
+│   │      ├── core/
+│   │      │   ├── __init__.py
+│   │      │   ├── config.py              # App settings and configurations (env variables)
+│   │      │   ├── dependencies.py        # Common dependencies (DB, authentication)
+│   │      │   └── security.py            # Security utilities (JWT handling, password hashing)
+│   │      ├── tests/
+|   |      |   ├── conftest.py
+│   │      │   ├── test_auth.py           # Unit tests for authentication
+│   │      │   ├── test_chats.py          # Unit tests for chat functionality
+│   │      │   └── test_websocket.py      # Unit tests for WebSocket functionality
+│   │      └── utils/
+│   │          ├── __init__.py
+│   │          └── helpers.py             # Utility functions (e.g., token handling, data formatting)
 │   ├── Dockerfile                     # Docker setup for the FastAPI backend
 │   ├── requirements.txt               # Python dependencies (FastAPI, SQLAlchemy, etc.)
 │   └── alembic/                       # Alembic migrations directory (for PostgreSQL)
