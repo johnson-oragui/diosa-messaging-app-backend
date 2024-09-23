@@ -1,6 +1,6 @@
 import asyncio
 
-from app.v1.database.session import get_session
+from app.database.session import get_session
 from app.v1.users import User
 from app.v1.chats import Message
 from app.v1.rooms import Room, Room_Member
