@@ -10,7 +10,7 @@ from sqlalchemy.engine import Connection
 
 from alembic import context
 
-from app.v1.core.config import settings
+from app.core.config import settings
 from app.v1.users import User
 from app.v1.chats import Message
 from app.v1.rooms import Room
@@ -36,7 +36,7 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
-from app.v1.database.session import Base
+from app.database.session import Base
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
