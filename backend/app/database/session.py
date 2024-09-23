@@ -30,7 +30,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from uuid import uuid4
 from datetime import datetime
 
-from app.v1.core.config import settings
+from app.core.config import settings
 
 naming_convention = {
     "ix": "ix_%(column_0_label)s",                                       # index
