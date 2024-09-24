@@ -24,6 +24,11 @@ class DictFormatter(logging.Formatter):
             log_record["user_agent"] = record.user_agent
         if hasattr(record, "current_user"):
             log_record["current_user"] = record.current_user
+        if hasattr(record, "path"):
+            log_record["path"] = record.path
+        if hasattr(record, "method"):
+            log_record["method"] = record.method
+        
 
         return json.dumps(log_record)
 
