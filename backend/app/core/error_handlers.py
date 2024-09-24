@@ -4,6 +4,7 @@ Exception handler module
 from fastapi import HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 from sqlalchemy.exc import SQLAlchemyError
 from redis.exceptions import RedisError
 
@@ -17,7 +18,9 @@ def get_user_ip_and_agent(request: Request) -> dict:
     """
     user_ip = request.client.host
     user_agent = request.headers.get('user-agent', 'Unknown')
-    return {"user_ip": user_ip, "user_agent": user_agent}
+    path = request.url.path
+    method = request.method
+    return {"user_ip": user_ip, "user_agent": user_agent, "path": path, "method": method}
 
 async def exception(request: Request, exc: Exception) -> JSONResponse:
     """
@@ -65,11 +68,11 @@ async def validation_excption_handler(request: Request, exc: RequestValidationEr
 
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={
+        content=jsonable_encoder({
             "status_code": status.HTTP_422_UNPROCESSABLE_ENTITY,
             "message": "Validation Error.",
-            "data": exc.errors()
-        }
+            "data": exc.errors()[0]
+        })
     )
 
 async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError) -> JSONResponse:
