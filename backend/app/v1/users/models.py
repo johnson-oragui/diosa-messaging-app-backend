@@ -1,28 +1,20 @@
-from typing import List, TYPE_CHECKING
+from typing import List
 from passlib.context import CryptContext
 from sqlalchemy.orm import relationship
 
-from app.v1.database.session import (
+from app.database.session import (
     Base,
     ModelMixin,
     String,
     Mapped,
     mapped_column
 )
-from app.v1.core.config import settings
+from app.v1.chats import Message
 
-
-secret_key = settings.secrets
 password_context = CryptContext(
     schemes=["bcrypt"],
     deprecated="auto"
 )
-
-# Import Message only for type checking purposes
-if TYPE_CHECKING:
-    from app.v1.chats import Message
-    from app.v1.rooms import Room, Room_Member
-
 
 class User(ModelMixin, Base):
     """
@@ -31,19 +23,20 @@ class User(ModelMixin, Base):
     # from app.chats.models import Message
     first_name: Mapped[str] = mapped_column(String(30), nullable=True)
     last_name: Mapped[str] = mapped_column(String(30), nullable=True)
-    email: Mapped[str] = mapped_column(String(30))
+    email: Mapped[str] = mapped_column(String(30), unique=True)
     password: Mapped[str] = mapped_column(String(100))
-    username: Mapped[str] = mapped_column(String(30))
+    username: Mapped[str] = mapped_column(String(30), unique=True)
+    idempotency_key: Mapped[str] = mapped_column(String(120), unique=True)
 
     messages: Mapped[List["Message"]] = relationship(
         "Message", back_populates="user", cascade="all, delete-orphan"
     )
 
-    rooms_created: Mapped[List["Room"]] = relationship(
+    rooms_created = relationship(
         "Room", back_populates="owner", cascade="all, delete-orphan"
     )
 
-    rooms_belongs_to: Mapped[List["Room_Member"]] = relationship(
+    rooms_belongs_to = relationship(
        "Room_Member", back_populates="member", cascade="all, delete-orphan"
     )
 
