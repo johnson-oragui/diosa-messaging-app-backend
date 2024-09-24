@@ -1,13 +1,15 @@
-from typing import TYPE_CHECKING
+from typing import List
 from sqlalchemy import Integer, ForeignKey
 from sqlalchemy.orm import relationship
 
-from app.v1.database.session import Base, ModelMixin, String, Mapped, mapped_column
-
-# Import Message only for type checking purposes
-if TYPE_CHECKING:
-    from app.v1.users import User
-    from app.v1.rooms import Room
+from app.database.session import (
+    Base,
+    ModelMixin,
+    String,
+    Mapped,
+    mapped_column
+)
+from app.v1.rooms import Room
 
 
 class Message(ModelMixin, Base):
@@ -26,7 +28,7 @@ class Message(ModelMixin, Base):
     content: Mapped[str] = mapped_column(String(1000))
     chat_type: Mapped[str] = mapped_column(String(30), nullable=True)
 
-    user: Mapped["User"] = relationship(
+    user = relationship(
         "User", back_populates="messages", uselist=False
     )
     room: Mapped["Room"] = relationship(
