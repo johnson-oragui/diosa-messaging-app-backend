@@ -11,9 +11,9 @@ from sqlalchemy.engine import Connection
 from alembic import context
 
 from app.core.config import settings
-from app.v1.users import User
 from app.v1.chats import Message
 from app.v1.rooms import Room
+from app.v1.users import User
 
 DB_URL = settings.db_url_async
 

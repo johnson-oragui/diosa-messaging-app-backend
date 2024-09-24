@@ -26,6 +26,7 @@ def upgrade() -> None:
     sa.Column('email', sa.String(length=30), nullable=False),
     sa.Column('password', sa.String(length=100), nullable=False),
     sa.Column('username', sa.String(length=30), nullable=False),
+    sa.Column('idempotency_key', sa.String(length=200), nullable=False),
     sa.Column('id', sa.String(length=60), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
