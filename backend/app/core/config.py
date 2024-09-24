@@ -1,5 +1,4 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import ConfigDict
 
 
 class Settings(BaseSettings):
@@ -19,6 +18,7 @@ class Settings(BaseSettings):
     jwt_refresh_token_expire_days: int
     jwt_algorithm: str
     secrets: str
+    jwt_algorithm: str
 
     mail_port: int
     mail_username: str
