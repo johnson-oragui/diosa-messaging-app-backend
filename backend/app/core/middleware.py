@@ -1,7 +1,9 @@
 """
 Exception handler module
 """
-from fastapi import Request
+from fastapi import Request, HTTPException, status
+from starlette.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.utils.task_logger import create_logger
 
@@ -12,19 +14,43 @@ async def route_logger_middleware(request: Request, call_next):
     Middleware to log user IP and user agent on each route call.
     """
     user_ip = request.client.host
-    user_agent = request.headers.get("user_agent", "unknown")
+    user_agent = request.headers.get("user-agent", "unknown")
 
     # Log with extra fields for user_ip and user_agent
     logger.info(
         "Request Received",
         extra={
             "user_ip": user_ip,
-            "user_agent": user_agent
+            "user_agent": user_agent,
+            "path": request.url.path,
+            "method": request.method
         }
     )
     response = await call_next(request)
 
     return response
+
+class UserAgentMiddleware(BaseHTTPMiddleware):
+    """
+    Class for UserAgent middleware
+    """
+    async def dispatch(self, request: Request, call_next):
+        """
+        Checks for user agent.
+        """
+        user_agent = request.headers.get("user-agent", "Unknown")
+        if user_agent == "Unknown":
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={
+                    "status_code": status.HTTP_400_BAD_REQUEST,
+                    "message": "Missing user-agent",
+                    "data": {}
+                }
+            )
+
+        response = await call_next(request)
+        return response
 
 async def set_header_middleware(request: Request, call_next):
     """
@@ -38,7 +64,7 @@ async def set_header_middleware(request: Request, call_next):
     """
     response = await call_next(request)
 
-    response.headers['Content-Type'] = "application/json; charset=utf-8; no-sniff"
+    response.headers['Content-Type'] = "charset=utf-8; no-sniff"
     return response
 
 async def set_hsts_header(request: Request, call_next):
