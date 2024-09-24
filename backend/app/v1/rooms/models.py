@@ -1,8 +1,7 @@
-from typing import TYPE_CHECKING, List
 from sqlalchemy.orm import relationship
 from sqlalchemy import ForeignKey, UniqueConstraint
 
-from app.v1.database.session import (
+from app.database.session import (
     Base,
     ModelMixin,
     String,
@@ -12,10 +11,8 @@ from app.v1.database.session import (
     datetime,
     DateTime
 )
+# from app.v1.chats import Message
 
-if TYPE_CHECKING:
-    from app.v1.chats import Message
-    from app.v1.users import User
 
 class Room(ModelMixin, Base):
     """
@@ -27,15 +24,15 @@ class Room(ModelMixin, Base):
     )
     is_private: Mapped[bool] = mapped_column(default=True)
 
-    owner: Mapped["User"] = relationship(
-        back_populates="rooms_created", uselist=False
+    owner = relationship(
+        "User", back_populates="rooms_created", uselist=False
     )
-    messages: Mapped[List["Message"]] = relationship(
-        back_populates="room", cascade="all, delete-orphan"
+    messages = relationship(
+        "Message", back_populates="room", cascade="all, delete-orphan"
     )
 
-    room_members: Mapped[List["Room_Member"]] = relationship(
-        back_populates="room", cascade="all, delete-orphan"
+    room_members = relationship(
+        "Room_Member", back_populates="room", cascade="all, delete-orphan"
     )
 
 
@@ -54,10 +51,10 @@ class Room_Member(ModelMixin, Base):
     )
     is_admin: Mapped[bool] = mapped_column(default=False)
 
-    member: Mapped["User"] = relationship(
+    member = relationship(
         "User", back_populates="rooms_belongs_to", uselist=False
     )
-    room: Mapped["Room"] = relationship(
+    room = relationship(
         "Room", back_populates="room_members", uselist=False
     )
 
