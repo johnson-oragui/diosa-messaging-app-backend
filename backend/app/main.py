@@ -9,6 +9,7 @@ from app.core.middleware import (
     route_logger_middleware,
     set_header_middleware,
     set_x_frame_options_header,
+    UserAgentMiddleware
 )
 from app.core.error_handlers import (
     exception,
@@ -19,6 +20,7 @@ from app.core.error_handlers import (
 )
 from app.database.session import async_engine
 from app.utils.task_logger import create_logger
+from app import api_version_one
 
 logger = create_logger("Main App")
 
@@ -38,11 +40,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             msg="Shutting Down Application"
         )
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifespan=lifespan, debug=True)
+app.include_router(api_version_one)
 
 app.middleware("http")(route_logger_middleware)
 app.middleware("http")(set_header_middleware)
 app.middleware("http")(set_x_frame_options_header)
+app.add_middleware(UserAgentMiddleware)
 
 @app.get("/", tags=['HOME'])
 async def read_root() -> dict:
