@@ -9,9 +9,11 @@ from pydantic import (BaseModel,
                       model_validator,
                       StringConstraints,
                       EmailStr,
-                      Field)
+                      Field,
+                      HttpUrl)
 from email_validator import validate_email, EmailNotValidError
 from bleach import clean
+from datetime import datetime, timezone
 
 from app.core.config import settings
 
@@ -106,10 +108,10 @@ class RegisterInput(BaseModel):
             'admin', 'root', 'superuser', 'superadmin'
         ]
         # not allowed characters for username, first_name, and last_name
-        name_disallowed_char = '1234567890!@~`#$%^&*()_+=-,.<>/?"\|'
+        name_disallowed_char = '1234567890!@~`#$%^&*()_+=-,.<>/?"\\|'
 
         if field == "username":
-            name_disallowed_char = '!@~`#$%^&*()_+=,.<>/?"\|'
+            name_disallowed_char = '!@~`#$%^&*()_+=,.<>/?"\\|'
             
             # check for reserved username
             if name in reserved_usernames:
@@ -184,6 +186,9 @@ class RegisterInput(BaseModel):
         last_name: str = values.get('last_name', '')
         username: str = values.get('username', '')
 
+        if not email:
+            raise ValueError("email must be provided")
+
         if password != confirm_password:
             raise ValueError('Passwords must match')
 
@@ -210,6 +215,52 @@ class UserBase(BaseModel):
     username: str = Field(examples=['Johnson1234'])
     first_name: str = Field(examples=['Johnson'])
     last_name: str = Field(examples=['Doe'])
+    status: str = Field(examples=["active"])
+    created_at: datetime = Field(examples=[datetime.now(timezone.utc)])
+    updated_at: datetime = Field(examples=[datetime.now(timezone.utc)])
+
+    model_config = ConfigDict(from_attributes=True)
+
+class ProfileBase(BaseModel):
+    """
+    ProfileBase
+    """
+    id: str
+    recovery_email: Optional[EmailStr] = Field(
+    )
+    bio: Optional[str] = Field(
+        default=None,
+        examples=["I am a very known ..."]
+    )
+    profession: Optional[str] = Field(
+        default=None,
+        examples=["Engineer"]
+    )
+    avatar_url: Optional[HttpUrl] = Field(
+        default=None,
+        examples=["https://example.com/image"]
+    )
+    facebook_link: Optional[HttpUrl] = Field(
+        default=None,
+        examples=["https://example.com"]
+    )
+    x_link: Optional[HttpUrl] = Field(
+        default=None,
+        examples=["https://example.com"]
+    )
+    instagram_link: Optional[HttpUrl] = Field(
+        default=None,
+        examples=["https://example.com"]
+    )
+    created_at: datetime = Field(examples=[datetime.now(timezone.utc)])
+    updated_at: datetime = Field(examples=[datetime.now(timezone.utc)])
+
+class UserProfile(BaseModel):
+    """
+    User data and profile data
+    """
+    user: UserBase
+    profile: ProfileBase
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -219,4 +270,21 @@ class RegisterOutput(BaseModel):
     """
     status_code: int = Field(examples=[201])
     message: str = Field(examples=['User Refgistered Successfully'])
-    data: UserBase
+    data: UserProfile
+
+class UserMeOut(BaseModel):
+    """
+    Model for UserMeOut.
+    """
+    status_code: int = Field(
+        examples=[200],
+    )
+    message: str = Field(examples=["User Data Retrieved Successfully"])
+    data: UserProfile
+
+
+__all__ = [
+    "UserMeOut", "RegisterOutput",
+    "UserProfile", "ProfileBase",
+    "UserBase", "RegisterInput"
+]
