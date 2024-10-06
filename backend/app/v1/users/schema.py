@@ -13,7 +13,7 @@ from pydantic import (BaseModel,
                       HttpUrl)
 from email_validator import validate_email, EmailNotValidError
 from bleach import clean
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 
 from app.core.config import settings
 
@@ -225,8 +225,13 @@ class ProfileBase(BaseModel):
     """
     ProfileBase
     """
-    id: str
+    id: str = Field(examples=["a0c96829-e826-4ab3-90f6-55b6c9a533bb"])
+    DOB: Optional[date] = Field(
+        examples=[str(date.fromisocalendar(2024, 2, 3))]
+    )
+    gender: Optional[str] = Field(examples=["male"])
     recovery_email: Optional[EmailStr] = Field(
+        examples=["myemail@email.com"]
     )
     bio: Optional[str] = Field(
         default=None,
@@ -282,9 +287,40 @@ class UserMeOut(BaseModel):
     message: str = Field(examples=["User Data Retrieved Successfully"])
     data: UserProfile
 
+class LoginInput(BaseModel):
+    """
+    Model for login input
+    """
+    username: Annotated[
+        str,
+        StringConstraints(
+            strip_whitespace=True,
+            min_length=3
+        )
+    ]
+    password: Annotated[
+        str,
+        StringConstraints(
+            strip_whitespace=True,
+            min_length=6,
+            max_length=30
+        )
+    ]
+
+class LoginOut(BaseModel):
+    """
+    Model for Login response.
+    """
+    status_code: int = Field(
+        examples=[200],
+    )
+    message: str = Field(examples=["Login Successful"], default="Login Successful")
+    data: UserProfile
+
 
 __all__ = [
     "UserMeOut", "RegisterOutput",
     "UserProfile", "ProfileBase",
-    "UserBase", "RegisterInput"
+    "UserBase", "RegisterInput",
+    "LoginOut"
 ]
