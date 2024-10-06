@@ -1,11 +1,12 @@
 import pytest
+from fastapi import HTTPException, Request
+from fastapi.responses import RedirectResponse
 from unittest import mock
-from fastapi import HTTPException
 
 from app.v1.auth.services import auth_service
 from app.v1.users.schema import (
-    UserBase,
-    RegisterOutput
+    RegisterOutput,
+    UserProfile
 )
 from app.utils.task_logger import create_logger
 
@@ -15,96 +16,132 @@ class TestAuthService:
     """
     Test class for auth_service
     """
-    @pytest.mark.asyncio
-    @mock.patch("app.v1.users.services.user_service.fetch_by_idempotency_key",
-                new=mock.AsyncMock(return_value=None))
-    @mock.patch("app.v1.users.services.user_service.fetch_by_email_or_user_name",
-                new=mock.AsyncMock(return_value=None))
-    @mock.patch("app.v1.auth.dependencies.generate_idempotency_key",
-                new=mock.AsyncMock(return_value="1234567890"))
-    @mock.patch("app.v1.users.services.user_service.create")
-    async def test_user_creation(self,
-                                 mock_user_service_create,
-                                 mock_session,
+    async def test_register_method(self,
                                  mock_register_input_johnson,
-                                 mock_register_output_johnson,
-                                 mock_johnson,
-                                 mock_userbase_johnson):
+                                 test_get_session,
+                                 test_setup):
         """
         Tests user creation successful
         """
-        mock_user_service_create.return_value = mock_johnson
-        response = await auth_service.register(mock_register_input_johnson, mock_session)
+        async with test_get_session as session:
+            response = await auth_service.register(mock_register_input_johnson, session)
 
-        assert isinstance(response, RegisterOutput)
-        assert response == mock_register_output_johnson
-        assert response.status_code == 201
-        assert response.message == "User Registered Successfully"
-        assert isinstance(mock_userbase_johnson, UserBase)
-        assert response.data == mock_userbase_johnson
+            assert response.status_code == 201
+            assert isinstance(response, RegisterOutput)           
+            assert response.message == "User Registered Successfully"
+            assert isinstance(response.data, UserProfile)
 
-    @pytest.mark.asyncio
-    @mock.patch("app.v1.auth.services.auth_service.register")
-    @mock.patch("app.v1.users.services.user_service.fetch_by_idempotency_key")
-    async def test_existing_idempotency_key(self, mock_fetch_by_idempotency_key,
-                                            mock_register,
-                                            mock_session,
-                                            mock_register_input_johnson,
-                                            mock_userbase_johnson,
-                                            mock_register_output_johnson_idempotency,
-                                            mock_johnson):
+    async def test_register_google_method(self,
+                                 mock_register_input_johnson,
+                                 mock_google_response,
+                                 test_get_session,
+                                 test_setup):
+        """
+        Tests user creation successful for google sign up
+        """
+        async with test_get_session as session:
+            request = mock.AsyncMock(spec=Request)
+            request.headers.get.return_value = "Fake-User_agent"
+            request.client.host.return_value = "127.0.0.1"
+            response = await auth_service.register_google(request, mock_google_response, session)
+
+            assert response.status_code == 302
+            assert isinstance(response, RedirectResponse)           
+
+    # async def test_register_github_method(self,
+    #                              mock_register_input_johnson,
+    #                              test_get_session,
+    #                              test_setup):
+    #     """
+    #     Tests user creation successful for github sign up
+    #     """
+    #     async with test_get_session as session:
+    #         response = await auth_service.register_github(mock_register_input_johnson, session)
+
+    #         assert response.status_code == 302
+    #         assert isinstance(response, RegisterOutput)           
+    #         assert response.message == "User Registered Successfully"
+    #         assert isinstance(response.data, UserProfile)
+
+
+    async def test_existing_idempotency_key(self,
+                                            mock_register_input_jayson,
+                                            test_get_session,
+                                            test_setup):
         """
         Tests existing idempotency_key
         """
-        mock_register.return_value = mock_register_output_johnson_idempotency
-
-        mock_fetch_by_idempotency_key.return_value = mock_johnson
-
-        response = await auth_service.register(mock_register_input_johnson, mock_session)
+        # register user
+        await auth_service.register(mock_register_input_jayson, test_get_session)
+        # register user again with same idempotency_key
+        response = await auth_service.register(mock_register_input_jayson, test_get_session)
 
         assert isinstance(response, RegisterOutput)
-        assert response == mock_register_output_johnson_idempotency
         assert response.status_code == 201
         assert response.message == "User Already Registered"
-        assert isinstance(mock_userbase_johnson, UserBase)
-        assert response.data == mock_userbase_johnson
 
-    @pytest.mark.asyncio
-    @mock.patch("app.v1.users.services.user_service.fetch_by_email_or_user_name")
-    @mock.patch("app.database.session.get_session")
-    async def test_email_already_exists(self, mock_get_session,
-                                           mock_fetch_by_email_or_user_name,
-                                           mock_register_input_johnson,
-                                           mock_johnson):
+    async def test_email_already_exists(self,mock_register_input_johnson,
+                                        test_get_session,
+                                        test_setup):
         """
         Test email already exists
         """
-        mock_get_session.execute = mock.AsyncMock()
+        await auth_service.register(mock_register_input_johnson, test_get_session)
+        # cretae a new user with the same email.
+        new_schema = mock_register_input_johnson
+        new_schema.username = "username"
+        new_schema.idempotency_key = "1234567890"
 
-        mock_fetch_by_email_or_user_name.return_value = mock_johnson
-
-        with pytest.raises(HTTPException):
+        with pytest.raises(HTTPException) as exc_info:
             await auth_service.register(
-                mock_register_input_johnson,
-                mock_get_session
+                new_schema,
+                test_get_session
             )
+        assert str(exc_info.value) == "400: email already exists"
 
     @pytest.mark.asyncio
-    @mock.patch("app.v1.users.services.user_service.fetch_by_email_or_user_name")
-    @mock.patch("app.database.session.get_session")
-    async def test_username_already_exists(self, mock_get_session,
-                                           mock_fetch_by_email_or_user_name,
+    async def test_username_already_exists(self,
                                            mock_register_input_johnson,
-                                           mock_johnson_2):
+                                           test_get_session,
+                                           test_setup):
         """
         Test username already exists
         """
-        mock_get_session.execute = mock.AsyncMock()
-
-        mock_fetch_by_email_or_user_name.return_value = mock_johnson_2
-
-        with pytest.raises(HTTPException):
-            response = await auth_service.register(
-                mock_register_input_johnson,
-                mock_get_session
+        await auth_service.register(mock_register_input_johnson, test_get_session)
+        new_user = mock_register_input_johnson
+        new_user.email = "newuser@gmail.com"
+        new_user.idempotency_key = "1234567890qq"
+        with pytest.raises(HTTPException) as exc_info:
+            await auth_service.register(
+                new_user,
+                test_get_session
             )
+        assert str(exc_info.value) == "400: username already exists"
+
+    @pytest.mark.asyncio
+    async def test_openapi_authorization(self,
+                                         mock_register_input_johnson,
+                                         test_get_session,
+                                         test_setup):
+        """
+        Test openapi oauth2 authorization
+        """
+        await auth_service.register(mock_register_input_johnson, test_get_session)
+        form_data = {
+            "username": mock_register_input_johnson.username,
+            "password":  mock_register_input_johnson.password
+        }
+
+        # Mock the request object
+        mock_request = mock.AsyncMock(spec=Request)
+        mock_request.headers.get.return_value = "Mocked-User-Agent"
+        mock_request.client.host = "127.0.0.1"
+
+        # Call the method to test
+        response = await auth_service.openapi_authorization(
+            form_data,
+            mock_request,
+            test_get_session
+        )
+
+        assert isinstance(response.get("access_token"), str)
