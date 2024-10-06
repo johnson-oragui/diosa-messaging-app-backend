@@ -1,40 +1,46 @@
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import or_, select
+from typing import Optional
+from fastapi import (
+    status,
+)
 
 from app.utils.task_logger import create_logger
 from app.v1.users import User
-from app.v1.users.schema import RegisterInput
+from app.base.services import Service
+from app.v1.users import Social_Login
+from app.v1.users.schema import (
+    UserMeOut,
+    UserBase,
+    ProfileBase,
+    UserProfile
+)
+from app.v1.profile.services import profile_service
+
 
 logger = create_logger("User Service")
 
-class UserService:
+class UserService(Service):
     """
     User class services
     """
-    async def create(self, schema: RegisterInput, session: AsyncSession) -> User:
-        """Creates a new user.
+    def __init__(self) -> None:
+        super().__init__(User)
+
+    async def create_social_login(self, schema: dict, session: AsyncSession) -> None:
+        """Creates a new entry for the user in social login table.
         
         Keyword arguments:
-            schema -- model containing user fields.
+            schema -- dictionary containing user fields.
             session -- Database session object
         Return: new user created.
         """
-        new_user = User(
-            **schema.model_dump(
-                exclude={
-                    "confirm_password",
-                    "password"
-                }
-            )
-        )
-        logger.info(msg=f"{schema.model_dump()}")
-        new_user.set_password(schema.password)
-        session.add(new_user)
+        social_login = Social_Login(**schema)
+        session.add(social_login)
         await session.commit()
-        return new_user
 
-    async def fetch_by_email_or_user_name(self, schema: RegisterInput, session: AsyncSession) -> Optional[User]:
+    async def fetch_by_email_or_user_name(self, schema: dict, session: AsyncSession) -> Optional[User]:
         """
         Fetch a user by username or email.
 
@@ -45,8 +51,8 @@ class UserService:
         """
         stmt = select(User).where(
             or_(
-                User.email == schema.email,
-                User.username == schema.username
+                User.email == schema.get("email"),
+                User.username == schema.get("username", "")
             )
         )
 
@@ -54,36 +60,24 @@ class UserService:
 
         return result.scalar_one_or_none()
 
-    async def fetch_by_id(self, user_id, session: AsyncSession) -> Optional[User]:
+    async def get_user_profile(self, user: User, session: AsyncSession) -> UserMeOut:
         """
-        Fetch a user by id.
+        Fetch user data.
 
         Keyword arguments:
-            user_id(str) -- id of the user.
+            user -- User model.
             session -- Database session object
-        Return: user if id is valid, none if id is invalid.
+        Return: User Data
         """
-        stmt = select(User).where(User.id == user_id)
+        profile = await profile_service.fetch({"user_id": user.id}, session)
+        return UserMeOut(
+            status_code=status.HTTP_200_OK,
+            message="User data retrieved successfuly",
+            data=UserProfile(
+                user=UserBase.model_validate(user, from_attributes=True),
+                profile=ProfileBase.model_validate(profile, from_attributes=True)
+            )
+        )
 
-        result = await session.execute(stmt)
-
-        return result.scalar_one_or_none()
-
-    async def fetch_by_idempotency_key(self, key: str, session: AsyncSession) -> Optional[User]:
-        """
-        Fetch a user by idempotency_key.
-
-        Keyword arguments:
-            key(str) -- the idempotency key.
-            session -- Database session object
-        Return: user if idempotency_key is valid, none if idempotency_key is invalid.
-        """
-        stmt = select(User).where(User.idempotency_key == key)
-
-        result = await session.execute(stmt)
-
-        user = result.scalar_one_or_none()
-
-        return user
 
 user_service = UserService()
