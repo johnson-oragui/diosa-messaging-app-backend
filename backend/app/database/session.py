@@ -40,20 +40,26 @@ naming_convention = {
     "pk": "pk_%(table_name)s"                                             # primary key
 }
 
-class Base(AsyncAttrs, DeclarativeBase):
-    metadata = MetaData(
-        schema=settings.db_schema,
-        naming_convention=naming_convention
-    )
-
 if settings.test:
-    DB_URL = settings.db_url
+    DATABASE_URL = settings.db_url
 else:
-    DB_URL = settings.db_url_async
+    DATABASE_URL = settings.db_url_async
+
+class Base(AsyncAttrs, DeclarativeBase):
+    if settings.test or "sqlite" in DATABASE_URL:
+        metadata = MetaData(
+            naming_convention=naming_convention
+        )
+    else:
+        metadata = MetaData(
+            schema=settings.db_schema,
+            naming_convention=naming_convention
+        )
+        
 
 # Creates the async engine, use pool_size and max_overflow for control over connections
 async_engine: AsyncEngine = create_async_engine(
-    url=DB_URL,
+    url=DATABASE_URL,
     echo=False,
     future=True,
     poolclass=pool.AsyncAdaptedQueuePool,
