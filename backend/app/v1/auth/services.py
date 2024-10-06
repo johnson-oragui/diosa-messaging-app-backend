@@ -1,7 +1,8 @@
 from typing import Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import status, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, JSONResponse
+from fastapi.encoders import jsonable_encoder
 import httpx
 
 from app.v1.users.services import user_service
@@ -12,7 +13,8 @@ from app.v1.auth.dependencies import (
     generate_idempotency_key,
     generate_jwt_token,
     generate_access_and_refresh,
-    authenticate_user
+    authenticate_user,
+    set_cookies
 )
 from app.utils.task_logger import create_logger
 from app.core.config import settings, social_oauth
@@ -157,24 +159,11 @@ class AuthService:
                     url=f"{settings.frontend_url}/register?success=true&token={access_token}",
                     status_code=status.HTTP_302_FOUND,
                 )
-
-                response.set_cookie(
-                    key="access_token",
-                    value=access_token,
-                    max_age=60 * settings.jwt_access_token_expire_minutes,
-                    secure=True,
-                    httponly=True,
-                    samesite="lax"
+                return await set_cookies(
+                    response,
+                    access_token,
+                    refresh_token
                 )
-                response.set_cookie(
-                    key="refresh_token",
-                    value=refresh_token,
-                    max_age=settings.jwt_refresh_token_expire_days * 24 * 60 * 60,
-                    secure=True,
-                    httponly=True,
-                    samesite="strict"
-                )
-                return response
 
             # check if username or email is already taken by another user.
             user_email_or_username_exists = await user_service.fetch_by_email_or_user_name(
@@ -221,23 +210,11 @@ class AuthService:
                 status_code=status.HTTP_302_FOUND,
             )
 
-            response.set_cookie(
-                key="access_token",
-                value=access_token,
-                max_age=60 * settings.jwt_access_token_expire_minutes,
-                secure=True,
-                httponly=True,
-                samesite="lax"
+            return await set_cookies(
+                response,
+                access_token,
+                refresh_token
             )
-            response.set_cookie(
-                key="refresh_token",
-                value=refresh_token,
-                max_age=settings.jwt_refresh_token_expire_days * 24 * 60 * 60,
-                secure=True,
-                httponly=True,
-                samesite="strict"
-            )
-            return response
         except Exception as exc:
             logger.error(msg=f"error in google callback: {exc}")
             return RedirectResponse(
@@ -304,23 +281,11 @@ class AuthService:
                     status_code=status.HTTP_302_FOUND,
                 )
 
-                response.set_cookie(
-                    key="access_token",
-                    value=access_token,
-                    max_age=60 * settings.jwt_access_token_expire_minutes,
-                    secure=True,
-                    httponly=True,
-                    samesite="lax"
+                return await set_cookies(
+                    response,
+                    access_token,
+                    refresh_token
                 )
-                response.set_cookie(
-                    key="refresh_token",
-                    value=refresh_token,
-                    max_age=settings.jwt_refresh_token_expire_days * 24 * 60 * 60,
-                    secure=True,
-                    httponly=True,
-                    samesite="strict"
-                )
-                return response
 
             # check if username or email is already taken by another user.
             user_email_or_username_exists = await user_service.fetch_by_email_or_user_name(
@@ -367,24 +332,11 @@ class AuthService:
                 status_code=status.HTTP_302_FOUND,
             )
 
-            response.set_cookie(
-                key="access_token",
-                value=access_token,
-                max_age=settings.jwt_access_token_expire_minutes * 60,
-                secure=True,
-                httponly=True,
-                samesite="lax"
+            return await set_cookies(
+                response,
+                access_token,
+                refresh_token
             )
-            response.set_cookie(
-                key="refresh_token",
-                value=refresh_token,
-                max_age=settings.jwt_refresh_token_expire_days * 24 * 60 * 60,
-                secure=True,
-                httponly=True,
-                samesite="lax"
-            )
-
-            return response
         except Exception as exc:
             logger.error(msg=f"error in github callback: {exc}")
             return RedirectResponse(
@@ -438,6 +390,63 @@ class AuthService:
         })
         token_response = AccessToken(access_token=access_token).model_dump()
         return token_response
+
+    async def login_user(self, schema: dict,
+                         request: Request,
+                         session: AsyncSession) -> Optional[JSONResponse]:
+        """
+        Authenticates and logs in a user.
+
+        Args:
+            schema(dict): dictionary containing username/email and password.
+            request(object): The request object.
+            session(object): Database async session object.
+        Returns:
+            response: if Authentication was successful.
+        Raises:
+            HttpException: If athentication fails.
+        """
+        authenticated_user = await authenticate_user(schema, session)
+        authenticate_profile = await profile_service.fetch(
+            {"user_id": authenticated_user.id},
+            session
+        )
+
+        user_base = UserBase.model_validate(
+            authenticated_user,
+            from_attributes=True
+        )
+
+        profile_base = ProfileBase.model_validate(
+            authenticate_profile,
+            from_attributes=True
+        )
+
+        user_profile = UserProfile(
+            user=user_base,
+            profile=profile_base
+        )
+
+        login_out = LoginOut(
+            status_code=200,
+            data=user_profile
+        )
+
+        response = JSONResponse(
+            content=jsonable_encoder(login_out.model_dump()),
+            status_code=status.HTTP_200_OK
+        )
+
+        access_token, refresh_token = await generate_access_and_refresh(
+            authenticated_user.id,
+            request
+        )
+
+        return await set_cookies(
+                    response,
+                    access_token,
+                    refresh_token
+        )
 
 
 auth_service = AuthService()
