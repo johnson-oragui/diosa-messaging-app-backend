@@ -1,4 +1,4 @@
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 from fastapi import (
     status,
     HTTPException,
@@ -6,6 +6,7 @@ from fastapi import (
     Cookie,
     Header,
 )
+from fastapi.responses import RedirectResponse, JSONResponse
 from datetime import datetime, timezone, timedelta
 from jose import jwt, JWTError
 import hashlib
@@ -79,7 +80,7 @@ async def generate_access_and_refresh(user_id: str, request: Request) -> Tuple[s
             user_id(str): id of the user.
             request: request object
         Returns:
-            tuple(str, str): generated access and refresh tokens
+            tuple(access_token, refresh_token): generated access and refresh tokens
         """
         access_token = await generate_jwt_token({
             "user_id": user_id,
@@ -338,3 +339,32 @@ async def get_current_active_user(
                 detail="User is inactive"
             )
         return user
+
+async def set_cookies(response: Union[JSONResponse, RedirectResponse],
+                      access_token: str, refresh_token: str) -> Union[JSONResponse, RedirectResponse]:
+    """
+    Sets cookies using access and refresh tokens.
+    Args:
+        response(object): the response object to set the cookies on.
+        access_token(str): the access token
+        refresh_token(str): the refresh token.
+    Returns:
+        response(object): response object.
+    """
+    response.set_cookie(
+        key="access_token",
+            value=access_token,
+            max_age=60 * settings.jwt_access_token_expire_minutes,
+            secure=True,
+            httponly=True,
+            samesite="lax"
+        )
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        max_age=settings.jwt_refresh_token_expire_days * 24 * 60 * 60,
+        secure=True,
+        httponly=True,
+        samesite="strict"
+    )
+    return response
