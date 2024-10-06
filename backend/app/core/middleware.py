@@ -64,7 +64,7 @@ async def set_header_middleware(request: Request, call_next):
     """
     response = await call_next(request)
 
-    response.headers['Content-Type'] = "charset=utf-8; no-sniff"
+    response.headers['Content-Type'] = "application/json;charset=utf-8; no-sniff"
     return response
 
 async def set_hsts_header(request: Request, call_next):
