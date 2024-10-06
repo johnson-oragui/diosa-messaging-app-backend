@@ -21,6 +21,10 @@ from app.v1.auth.services import auth_service
 from app.utils.task_logger import create_logger
 from app.v1.auth.responses_schema import responses
 from app.core.config import social_oauth, settings
+from app.v1.users.schema import (
+    LoginInput,
+    LoginOut,
+)
 
 
 logger = create_logger("Auth Route")
@@ -173,3 +177,26 @@ async def token(
         "username": form_schema.username,
         "password": form_schema.password
     }, request, session)
+
+@auth.post("/login",
+           response_model=LoginOut,
+           responses=responses,
+           status_code=status.HTTP_200_OK)
+async def login(schema: LoginInput,
+                request: Request,
+                session: Annotated[AsyncSession, Depends(get_session)]):
+    """
+    Authenticates and Logs in a user.
+
+    Args:
+        schema: contains username/email and password of the user.
+    Returns:
+        Response: contains user detail if authenticated.
+    Raises:
+        HTTException: if authentication fails.
+    """
+    return await auth_service.login_user(
+        {"username": schema.username, "password": schema.password},
+        request,
+        session
+    )
