@@ -7,17 +7,83 @@ Contains project on a chatroom with fastapi and jinja templates/react
 
 1. **User Authentication**:
    - **Login**: Users log in using an authentication system (JWT tokens or OAuth2). 
-     - Endpoint: `POST /auth/login`
+     - Endpoint: `POST /api/v1/auth/login`
      - Request: `{ "username": "user1", "password": "password" }`
-     - Response: `{ "access_token": "jwt_token", "token_type": "bearer" }`
+     - Response: `{`
+         `"status_code": 200,`
+         `"message": "Login Successful",`
+         `"data": {`
+            `"user": {`
+             `  "id": "1234ed.4455tf...",`
+               `"email": "Johnson@example.com",`
+               `"username": "Johnson1234",`
+              ` "first_name": "Johnson",`
+              ` "last_name": "Doe",`
+              ` "status": "active",`
+              `` "created_at": "2024-10-06T18:39:29.582887Z",`
+              ` "updated_at": "2024-10-06T18:39:29.582921Z"`
+          `  },`
+           ` "profile": {`
+               `"id": "a0c96829-e826-4ab3-90f6-55b6c9a533bb",`
+               `"DOB": "2024-01-10",`
+               `"gender": "string",`
+           `    "recovery_email": "myemail@email.com",`
+              ` "bio": "I am a very known ...",`
+               `"profession": "Engineer",`
+               `"avatar_url": "https://example.com/image",`
+               `"facebook_link": "https://example.com",`
+               `"x_link": "https://example.com",`
+               `"instagram_link": "https://example.com",`
+               `"created_at": "2024-10-06T18:39:29.585285Z",`
+               `"updated_at": "2024-10-06T18:39:29.585318Z"`
+           ` }`
+        ` }`
+         `}`
 
    - **Signup**: Users register by creating an account.
-     - Endpoint: `POST /auth/signup`
-     - Request: `{ "username": "user1", "password": "password", "email": "email@example.com" }`
-     - Response: `{"message": "User created"}`
+     - Endpoint: `POST /api/v1/auth/register`
+     - Request: `{`
+         `"email": "Johnson@example.com",`
+         `"username": "Johnson1234",`
+         `"first_name": "Johnson",`
+         `"last_name": "Doe",`
+         `"password": "Johnson1234@",`
+         `"confirm_password": "Johnson1234@",`
+         `"idempotency_key": "dij9048208293dj230"`
+         `}`
+     - Response: `{`
+        ` "status_code": 201,`
+        ` "message": "User Refgistered Successfully",`
+         `"data": {`
+          `  "user": {`
+               `"id": "1234ed.4455tf...",`
+               `"email": "Johnson@example.com",`
+               `"username": "Johnson1234",`
+               `"first_name": "Johnson",`
+               `"last_name": "Doe",`
+               `"status": "active",`
+               `"created_at": "2024-10-06T18:39:29.582887Z",`
+               `"updated_at": "2024-10-06T18:39:29.582921Z"`
+           ` },`
+            `"profile": {`
+              ` "id": "a0c96829-e826-4ab3-90f6-55b6c9a533bb",`
+              ` "DOB": "2024-01-10",`
+               `"gender": "string",`
+               `"recovery_email": "myemail@email.com",`
+               `"bio": "I am a very known ...",`
+               `"profession": "Engineer",`
+               `"avatar_url": "https://example.com/image",`
+               `"facebook_link": "https://example.com",`
+               `"x_link": "https://example.com",`
+               `"instagram_link": "https://example.com",`
+               `"created_at": "2024-10-06T18:39:29.585285Z",`
+               `"updated_at": "2024-10-06T18:39:29.585318Z"`
+           ` }`
+        ` }`
+        ` }`
 
    - **Token Authentication for WebSockets**: Every WebSocket connection requires a valid JWT token for the user.
-     - Users connect to WebSocket URLs using an Authorization header or token query parameter.
+     - Users connect to WebSocket URLs using an Authorization header or token cookie.
 
 2. **General Chat (Public Chat)**:
    - **Join General Chat**: Anyone can join and send messages in a general chat (for all users).
@@ -27,7 +93,7 @@ Contains project on a chatroom with fastapi and jinja templates/react
        - Incoming messages are broadcasted to all users in the general chat.
 
    - **Message Persistence**: Store every message in the PostgreSQL database using SQLAlchemy.
-     - Message Model: `{ "id": int, "user_id": int, "content": str, "timestamp": datetime, "chat_type": "general" }`
+     - Message Model: `{ "id": string, "user_id": string, "content": str, "timestamp": datetime, "chat_type": "general" }`
      - Store every incoming message in the `messages` table.
 
    - **Retrieve Chat History**: Users can fetch the history of general chat messages.
@@ -84,7 +150,7 @@ Contains project on a chatroom with fastapi and jinja templates/react
 
 1. **Authentication (Login/Register)**:
    - On the login screen, users enter their username and password.
-   - **API Call**: `POST /auth/login`
+   - **API Call**: `POST /api/v1/auth/login`
    - If successful, store the JWT token in local storage or a cookie.
    - Redirect the user to the chat dashboard.
 
@@ -129,7 +195,7 @@ Contains project on a chatroom with fastapi and jinja templates/react
 
 ### Database Schema
 
-- **Users Table**: Stores user information (`id`, `username`, `email`, `password_hash`).
+- **Users Table**: Stores user information (`id`, `username`, `email`, `password`, `first_name`, `last_name`).
 - **Messages Table**: Stores general, private, and room messages (`id`, `chat_type`, `sender_id`, `receiver_id`, `room_id`, `content`, `timestamp`).
 - **ChatRooms Table**: Stores chat room info (`id`, `creator_id`, `name`, `description`, `invite_link`).
 - **RoomMembers Table**: Stores members of chat rooms (`user_id`, `room_id`, `is_approved`).
