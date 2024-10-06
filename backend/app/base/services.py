@@ -3,7 +3,7 @@ Base Service module
 """
 from typing import TypeVar, Generic, Type, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc, asc, delete as sql_delete
+from sqlalchemy import select, desc, asc, delete as sql_delete, update
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 
 from app.v1.users import User
@@ -72,6 +72,30 @@ class Service(Generic[ModelType]):
 
         await session.commit()
         return obj
+
+    async def update(self, where: List[dict], session: AsyncSession) -> Optional[ModelType]:
+        """
+        Update a record in the database and return the updated object.
+            :param where: list containing dicts with filters and data to update
+            :param session: AsyncSession from SQLAlchemy
+            :return: Updated object
+        """
+        filterer, schema = where[:2]
+        schema = await validate_params(self.model, schema)
+        filterer = await validate_params(self.model, filterer)
+
+        stmt = update(self.model)
+
+        for key, value in filterer.items():
+            stmt = stmt.where(
+                    getattr(self.model, key) == value
+                )
+        stmt = stmt.values(**schema).returning(self.model)
+
+        result = await session.execute(stmt)
+        await session.commit()
+
+        return result.scalar_one_or_none()
 
     async def fetch(self, filterer: dict, session: AsyncSession) -> Optional[ModelType]:
         """
