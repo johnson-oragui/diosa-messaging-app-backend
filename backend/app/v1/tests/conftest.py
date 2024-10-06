@@ -194,6 +194,7 @@ def mock_jayson_user_dict():
         "first_name": "jayson",
         "last_name": "oragui",
         "password": "Jayson1234@",
+        "confirm_password": "Jayson1234@",
         "idempotency_key": "fake_idempotency-key"
     }
     yield register_input
