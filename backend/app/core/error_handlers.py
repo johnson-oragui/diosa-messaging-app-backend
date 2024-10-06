@@ -32,11 +32,11 @@ async def exception(request: Request, exc: Exception) -> JSONResponse:
     )
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={
+        content=jsonable_encoder({
             "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR,
             "message": "An Unexpected Error Occured" ,
             "data": {}
-        }
+        })
     )
 
 async def http_exception(request: Request, exc: HTTPException) -> JSONResponse:
@@ -50,19 +50,20 @@ async def http_exception(request: Request, exc: HTTPException) -> JSONResponse:
 
     return JSONResponse(
         status_code=exc.status_code,
-        content={
+        content=jsonable_encoder({
             "status_code": exc.status_code,
             "message": exc.detail,
             "data": {}
-        }
+        })
     )
 
 async def validation_excption_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     """
     Handles request validation error
     """
+    error = exc.errors() if exc.errors() else "No Error message to extract from"
     logger.error(
-        msg=f"Validation error: {exc.errors()}",
+        msg=f"Validation error: {error}",
         extra=get_user_ip_and_agent(request)
     )
 
@@ -71,7 +72,7 @@ async def validation_excption_handler(request: Request, exc: RequestValidationEr
         content=jsonable_encoder({
             "status_code": status.HTTP_422_UNPROCESSABLE_ENTITY,
             "message": "Validation Error.",
-            "data": exc.errors()[0]
+            "data": exc.errors()[0] if exc.errors()[0] else "Empty Error"
         })
     )
 
@@ -85,11 +86,11 @@ async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError) -
     )
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={
+        content=jsonable_encoder({
             "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR,
             "message": "Internal Server Error",
             "data": {}
-        }
+        })
     )
 
 async def redis_exception_handler(request: Request, exc: RedisError) -> JSONResponse:
@@ -102,9 +103,9 @@ async def redis_exception_handler(request: Request, exc: RedisError) -> JSONResp
     )
     return JSONResponse(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        content={
+        content=jsonable_encoder({
             "status_code": status.HTTP_503_SERVICE_UNAVAILABLE,
             "message": "A Redis Error occured",
             "data": {}
-        }
+        })
     )
