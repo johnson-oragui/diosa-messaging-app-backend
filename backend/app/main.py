@@ -4,6 +4,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from redis.exceptions import RedisError
 from typing import AsyncIterator
 from contextlib import asynccontextmanager
+from starlette.middleware.sessions import SessionMiddleware
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.middleware import (
     route_logger_middleware,
@@ -21,6 +23,7 @@ from app.core.error_handlers import (
 from app.database.session import async_engine
 from app.utils.task_logger import create_logger
 from app import api_version_one
+from app.core.config import settings
 
 logger = create_logger("Main App")
 
@@ -40,8 +43,26 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             msg="Shutting Down Application"
         )
 
+
 app = FastAPI(lifespan=lifespan, debug=True)
 app.include_router(api_version_one)
+
+origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:7001",
+    "http://localhost:7001",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods="*",
+    allow_headers="*"
+)
+
+app.add_middleware(SessionMiddleware, secret_key=settings.secrets)
 
 app.middleware("http")(route_logger_middleware)
 app.middleware("http")(set_header_middleware)
