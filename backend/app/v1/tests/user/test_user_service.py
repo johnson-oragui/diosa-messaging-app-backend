@@ -92,6 +92,21 @@ class TestUserService:
 
         assert fetched_users == []
 
+    @pytest.mark.asyncio
+    async def test_update(self,
+                          mock_johnson_user_dict,
+                          test_get_session,
+                          test_setup):
+        """
+        Test profile_service.update.
+        """
+        new_user = await user_service.create(mock_johnson_user_dict, test_get_session)
+
+        await user_service.update([{"id": new_user.id}, {"last_name": "King"}], test_get_session)
+
+        assert new_user.last_name == "King"
+        assert new_user.last_name != mock_johnson_user_dict["last_name"]
+
     async def test_fetch_by_email_or_user_name(self,
                           mock_jayson_user_dict,
                           test_get_session,
