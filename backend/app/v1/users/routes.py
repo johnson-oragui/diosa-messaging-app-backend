@@ -35,7 +35,7 @@ async def users_me(
     request: Request,
     session: Annotated[AsyncSession, Depends(get_session)],
     access_token: Annotated[Optional[str], Depends(check_for_access_token)]
-    ) -> UserMeOut:
+    ):
     """
     Fetches a user and user profile data.
 
