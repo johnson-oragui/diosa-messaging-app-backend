@@ -25,6 +25,47 @@ class TestProfileService:
         assert profile_user.bio == None
 
     @pytest.mark.asyncio
+    async def test_delete_all(self,
+                          mock_johnson_user_dict,
+                          mock_jayson_user_dict,
+                          test_get_session,
+                          test_setup):
+        """
+        Test profile_service.delete_all.
+        """
+        new_users = await user_service.create_all(
+            [
+                mock_johnson_user_dict,
+                mock_jayson_user_dict,
+            ],
+            test_get_session
+        )
+        profile_users = await profile_service.create_all(
+            [
+                {"user_id": new_users[0].id},
+                {"user_id": new_users[1].id}
+            ]
+            , test_get_session
+        )
+
+        assert len(profile_users) == 2
+
+        await profile_service.delete_all(
+            where={
+                "bio": None
+            },
+            session=test_get_session
+        )
+
+        deleted_profile = await profile_service.fetch_all(
+            {},
+            session=test_get_session
+        )
+
+        assert deleted_profile == []
+
+
+    @pytest.mark.asyncio
     async def test_fetch(self,
                           mock_johnson_user_dict,
                           test_get_session,
@@ -89,3 +130,31 @@ class TestProfileService:
 
         assert profile_user.bio == "i am king"
         assert updated_profile.bio == profile_user.bio
+
+    @pytest.mark.asyncio
+    async def test_delete(self,
+                          mock_johnson_user_dict,
+                          test_get_session,
+                          test_setup):
+        """
+        Test profile_service.delete.
+        """
+        new_user = await user_service.create(mock_johnson_user_dict, test_get_session)
+        profile_user = await profile_service.create(
+            {"user_id": new_user.id}
+            , test_get_session
+        )
+
+        assert profile_user is not None
+
+        await profile_service.delete(
+            {"id": profile_user.id},
+            test_get_session
+        )
+
+        deleted_profile = await profile_service.delete(
+            {"user_id": new_user.id},
+            test_get_session
+        )
+
+        assert deleted_profile is None
