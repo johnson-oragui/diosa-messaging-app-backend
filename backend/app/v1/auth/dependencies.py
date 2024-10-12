@@ -5,6 +5,7 @@ from fastapi import (
     Request,
     Cookie,
     Header,
+    WebSocket,
 )
 from fastapi.responses import RedirectResponse, JSONResponse
 from datetime import datetime, timezone, timedelta
@@ -72,7 +73,7 @@ async def generate_jwt_token(data: dict, token_type: str = "access") -> str:
     logger.info(msg=f"token: {token}")
     return token
 
-async def generate_access_and_refresh(user_id: str, request: Request) -> Tuple[str, str]:
+async def generate_access_and_refresh(user_id: str, request: Union[WebSocket, Request]) -> Tuple[str, str]:
         """
         Generates both access and refresh tokens.
 
@@ -82,6 +83,8 @@ async def generate_access_and_refresh(user_id: str, request: Request) -> Tuple[s
         Returns:
             tuple(access_token, refresh_token): generated access and refresh tokens
         """
+        if isinstance(request, WebSocket):
+            pass
         access_token = await generate_jwt_token({
             "user_id": user_id,
             "user_agent": request.headers.get("user-agent"),
@@ -96,7 +99,7 @@ async def generate_access_and_refresh(user_id: str, request: Request) -> Tuple[s
 
         return access_token, refresh_token
 
-async def verify_access_token(token: str, request: Request) -> str:
+async def verify_access_token(token: str, request: Union[WebSocket, Request]) -> str:
     """Verifies/Decodes access token.
     
     Keyword arguments:
@@ -105,6 +108,8 @@ async def verify_access_token(token: str, request: Request) -> str:
     Return: user_id
     """
     try:
+        if isinstance(request, WebSocket):
+            pass
         claims: dict = jwt.decode(
             token,
             key=settings.secrets,
@@ -131,7 +136,7 @@ async def verify_access_token(token: str, request: Request) -> str:
             status_code=status.HTTP_401_UNAUTHORIZED
         )
 
-async def verify_refresh_token(token: str, request: Request) -> str:
+async def verify_refresh_token(token: str, request: Union[WebSocket, Request]) -> str:
     """Verifies/Decodes refresh token.
     
     Keyword arguments:
@@ -139,8 +144,9 @@ async def verify_refresh_token(token: str, request: Request) -> str:
         request(Request) -- request object
     Return: user_id
     """
-    
     try:
+        if isinstance(request, WebSocket):
+            pass
         claims: dict = jwt.decode(
             token,
             key=settings.secrets,
@@ -178,6 +184,7 @@ async def check_for_access_token(access_token: Optional[str] = Cookie(None),
         token(str): if found, None if not found.
     """
     token = None
+    logger.info(msg=f"access_token: {access_token}, authorization: :{Authorization}")
     if access_token:
         token = access_token
         logger.info(msg=f"access_token: {access_token}")
@@ -289,7 +296,7 @@ async def authenticate_user(schema: dict, session: AsyncSession) -> Optional[Use
 
 async def get_current_user(
         access_token: str,
-        request:Request,
+        request: Union[Request, WebSocket],
         session: AsyncSession
     ) -> Optional[User]:
         """
@@ -317,7 +324,7 @@ async def get_current_user(
 
 async def get_current_active_user(
         access_token: str,
-        request:Request,
+        request: Union[Request, WebSocket],
         session: AsyncSession
     ) -> Optional[User]:
         """Retrieves the current-active user using the access_token.
@@ -355,7 +362,7 @@ async def set_cookies(response: Union[JSONResponse, RedirectResponse],
         key="access_token",
             value=access_token,
             max_age=60 * settings.jwt_access_token_expire_minutes,
-            secure=True,
+            secure=False,
             httponly=True,
             samesite="lax"
         )
@@ -363,7 +370,7 @@ async def set_cookies(response: Union[JSONResponse, RedirectResponse],
         key="refresh_token",
         value=refresh_token,
         max_age=settings.jwt_refresh_token_expire_days * 24 * 60 * 60,
-        secure=True,
+        secure=False,
         httponly=True,
         samesite="strict"
     )
