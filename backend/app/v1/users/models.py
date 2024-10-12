@@ -1,7 +1,7 @@
 from typing import List
 from passlib.context import CryptContext
 from sqlalchemy.orm import relationship
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, Enum
 
 from app.database.session import (
     Base,
@@ -12,6 +12,7 @@ from app.database.session import (
 )
 from app.v1.chats import Message
 from app.v1.profile import Profile
+from app.v1.rooms import RoomInvitation
 
 password_context = CryptContext(
     schemes=["bcrypt"],
@@ -30,7 +31,14 @@ class User(ModelMixin, Base):
     username: Mapped[str] = mapped_column(String(30), unique=True)
     idempotency_key: Mapped[str] = mapped_column(String(120), unique=True)
     email_verified: Mapped[bool] = mapped_column(default=False)
-    status: Mapped[str] = mapped_column(server_default="active")
+    status: Mapped[str] = mapped_column(
+        Enum("active", "inactive", "deleted", "banned", name="user_status_enum", validate_strings=True, schema="chat"),
+        server_default="active"
+    )
+    online_status: Mapped[str] = mapped_column(
+        Enum("online", "away", "offline", name="user_online_status_enum", validate_strings=True, schema="chat"),
+        server_default="online"
+    )
 
     messages: Mapped[List["Message"]] = relationship(
         "Message", back_populates="user", cascade="all, delete-orphan"
@@ -41,10 +49,18 @@ class User(ModelMixin, Base):
     )
 
     rooms_belongs_to = relationship(
-       "Room_Member", back_populates="member", cascade="all, delete-orphan"
+       "RoomMember", back_populates="member", cascade="all, delete-orphan"
     )
     profile: Mapped["Profile"] = relationship(
        "Profile", back_populates="user", cascade="all, delete-orphan", uselist=False
+    )
+
+    sent_invitations: Mapped[List["RoomInvitation"]] = relationship(
+        "RoomInvitation", back_populates="inviter", foreign_keys=[RoomInvitation.inviter_id], cascade="all, delete-orphan"
+    )
+
+    received_invitations: Mapped[List["RoomInvitation"]] = relationship(
+        "RoomInvitation", back_populates="invitee", foreign_keys=[RoomInvitation.invitee_id], cascade="all, delete-orphan"
     )
 
     def set_password(self, plain_password: str) -> None:
@@ -73,9 +89,9 @@ class User(ModelMixin, Base):
             hash=self.password
         )
 
-class Social_Login(ModelMixin, Base):
+class SocialRegister(ModelMixin, Base):
     """
-    Social Login Model(Table)
+    SocialRegister Model(Table)
     """
     user_id: Mapped[str] = mapped_column(
         String(60), ForeignKey("users.id", ondelete="CASCADE")
