@@ -12,8 +12,8 @@ from alembic import context
 
 from app.core.config import settings
 from app.v1.chats import Message
-from app.v1.rooms import Room
-from app.v1.users import User, Social_Login
+from app.v1.rooms import Room, RoomMember, RoomInvitation
+from app.v1.users import User, SocialRegister
 from app.v1.profile import Profile
 
 DB_URL = settings.db_url_async
