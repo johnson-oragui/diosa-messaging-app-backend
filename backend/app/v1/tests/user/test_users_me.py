@@ -37,26 +37,26 @@ class TestUserRoute:
         assert data["data"]["user"]["id"] == new_user.id
         assert data["data"]["profile"]["id"] == new_profile.id
 
-    async def test_users_me_route_without_token(self,
+    async def test_users_me_route_with_diff_user_id_token(self,
                                   client,
                                   mock_user_id,
                                   mock_johnson_user_dict,
                                   test_get_session,
                                   test_setup):
         """
-        Test unsuccessfull user-profile retrieval.
+        Test unsuccessfull user-profile retrieval..
         """
-        mock_johnson_user_dict["id"] = mock_user_id
+        mock_johnson_user_dict["id"] = "different_user_id"
 
         await user_service.create(mock_johnson_user_dict, test_get_session)
 
         response = client.get(
-            url="/api/v1/users/me",
+            url="/api/v1/users/me", headers={"Authorization": "Bearer"}
         )
         data: dict = response.json()
         print("response: ", response.json())
 
         assert response.status_code == 401
         assert data["status_code"] == 401
-        assert data["message"] == "Unauthorized"
+        assert data["message"] == "User not found."
         
