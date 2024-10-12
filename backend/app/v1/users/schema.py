@@ -215,7 +215,7 @@ class UserBase(BaseModel):
     username: str = Field(examples=['Johnson1234'])
     first_name: str = Field(examples=['Johnson'])
     last_name: str = Field(examples=['Doe'])
-    status: str = Field(examples=["active"])
+    online_status: str = Field(examples=["online"])
     created_at: datetime = Field(examples=[datetime.now(timezone.utc)])
     updated_at: datetime = Field(examples=[datetime.now(timezone.utc)])
 
