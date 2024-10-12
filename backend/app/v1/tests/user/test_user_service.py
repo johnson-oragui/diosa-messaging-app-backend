@@ -1,6 +1,8 @@
+import json
 import pytest
+from fastapi.responses import JSONResponse
 
-from app.v1.users.services import user_service, UserMeOut
+from app.v1.users.services import user_service
 from app.v1.profile.services import profile_service
 
 
@@ -18,6 +20,25 @@ class TestUserService:
         new_user = await user_service.create(mock_jayson_user_dict, test_get_session)
 
         assert new_user.first_name == mock_jayson_user_dict.get("first_name")
+
+    async def test_create_all(self,
+                          mock_jayson_user_dict,
+                          mock_johnson_user_dict,
+                          test_get_session,
+                          test_setup):
+        """
+        Test create  multiple users.
+        """
+        users = await user_service.create_all(
+            [
+                mock_jayson_user_dict,
+                mock_johnson_user_dict
+            ],
+            test_get_session
+        )
+
+        assert users[0].first_name == mock_jayson_user_dict.get("first_name")
+        assert users[1].first_name == mock_johnson_user_dict.get("first_name")
 
     async def test_fetch(self,
                           mock_jayson_user_dict,
@@ -86,7 +107,7 @@ class TestUserService:
 
         assert fetched_users == users
 
-        await user_service.delete_all(test_get_session)
+        await user_service.delete_all(session=test_get_session)
 
         fetched_users = await user_service.fetch_all({}, test_get_session)
 
@@ -140,8 +161,8 @@ class TestUserService:
         new_user = await user_service.create(mock_johnson_user_dict, test_get_session)
         await profile_service.create({"user_id": new_user.id}, test_get_session)
 
-        user_profile = await user_service.get_user_profile(new_user, test_get_session)
+        json_response = await user_service.get_user_profile(new_user, test_get_session)
 
-        assert isinstance(user_profile, UserMeOut)
-        assert user_profile.status_code == 200
-        assert user_profile.message == "User data retrieved successfuly"
+        assert isinstance(json_response, JSONResponse)
+        assert json_response.status_code == 200
+        assert json.loads(json_response.body.decode())["message"] == "User data retrieved successfuly"
