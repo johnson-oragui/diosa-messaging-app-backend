@@ -119,7 +119,7 @@ def restore_test_env():
 
 
 # create database session for testing service classes
-@pytest.fixture
+@pytest.fixture(scope="function")
 async def test_setup():
     """
     create database session for testing service classes
@@ -301,3 +301,81 @@ def mock_github_oauth2(mock_github_response):
             mock_authorize_access_token.return_value = mock_github_response
 
             yield mock_authorize_redirect, mock_authorize_access_token
+
+@pytest.fixture(scope="function")
+def mock_public_room_one_dict():
+    """
+    Room one dict
+    """
+    room = {
+        "room_name": "public_room_one",
+        "room_type": "public",
+        "description": "public room",
+        "creator_id": "",
+    }
+    yield room
+
+@pytest.fixture(scope="function")
+def mock_public_room_two_dict():
+    """
+    Room two dict
+    """
+    room = {
+        "room_name": "public_room_two",
+        "room_type": "public",
+        "description": "public room",
+        "creator_id": "",
+    }
+    yield room
+
+@pytest.fixture(scope="function")
+def mock_private_room_one_dict():
+    """
+    Room one dict
+    """
+    room = {
+        "room_name": "private_room_one",
+        "room_type": "private",
+        "description": "public room",
+        "creator_id": "",
+    }
+    yield room
+
+@pytest.fixture(scope="function")
+def mock_private_room_two_dict():
+    """
+    Room two dict
+    """
+    room = {
+        "room_name": "private_room_two",
+        "room_type": "private",
+        "description": "public room",
+        "creator_id": "",
+    }
+    yield room
+
+@pytest.fixture(scope="function")
+def mock_direct_message_one_dict():
+    """
+    Room one dict
+    """
+    room = {
+        "room_name": "direct_message_one",
+        "room_type": "direct_message",
+        "description": "public room",
+        "creator_id": "",
+    }
+    yield room
+
+@pytest.fixture(scope="function")
+def mock_direct_message_two_dict():
+    """
+    Room two dict
+    """
+    room = {
+        "room_name": "direct_message_two",
+        "room_type": "direct_message",
+        "description": "public room",
+        "creator_id": "",
+    }
+    yield room
