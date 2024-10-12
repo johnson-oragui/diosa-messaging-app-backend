@@ -1,7 +1,7 @@
 """
 Base Service module
 """
-from typing import TypeVar, Generic, Type, List, Optional
+from typing import TypeVar, Generic, Type, List, Optional, Sequence
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, asc, delete as sql_delete, update
 from sqlalchemy.orm.attributes import InstrumentedAttribute
@@ -73,6 +73,30 @@ class Service(Generic[ModelType]):
         await session.commit()
         return obj
 
+    async def create_all(self, schema_list: List[dict], session: AsyncSession) -> List[ModelType]:
+        """
+        Create a new record in the database.
+
+        Args:
+            schema(List(dict)): List of dictionaries containing fields of data to create
+            session: AsyncSession from SQLAlchemy
+        Returns:
+            objects(List[objects]): List containing the newly created objects.
+        """
+        validated_schemas: list = []
+        # validate attributes
+        for schema in schema_list:
+            validated_schemas.append(await validate_params(self.model, schema))
+
+        new_objects: list = []
+        # iterate through schemas
+        for schema in validated_schemas:
+            new_objects.append(self.model(**schema))
+
+        session.add_all(new_objects)
+        await session.commit()
+        return new_objects
+
     async def update(self, where: List[dict], session: AsyncSession) -> Optional[ModelType]:
         """
         Update a record in the database and return the updated object.
@@ -119,7 +143,7 @@ class Service(Generic[ModelType]):
 
         return result.scalar_one_or_none()
 
-    async def fetch_all(self, filterer: dict, session: AsyncSession) -> List[ModelType]:
+    async def fetch_all(self, filterer: dict, session: AsyncSession) -> Sequence[ModelType]:
         """
         Fetch all records with optional filters
         :param filter: dictionary containing filter parameters
@@ -155,7 +179,7 @@ class Service(Generic[ModelType]):
         all_objects = result.scalars().all()
         return all_objects
 
-    async def delete(self, filterer: dict, session: AsyncSession) -> None:
+    async def delete(self, filterer: dict, session: AsyncSession) -> Optional[ModelType]:
         """
         Delete a record by using the passed filter(s)
         :param filterer: dictionary containing search data (e.g., {'id': 20})
@@ -170,16 +194,30 @@ class Service(Generic[ModelType]):
                 getattr(self.model, key) == value
             )
 
-        await session.execute(stmt)
+        result = await session.execute(stmt.returning(self.model))
+        return result.scalar_one_or_none()
 
-    async def delete_all(self, session: AsyncSession) -> None:
+    async def delete_all(self, session: AsyncSession, where: dict = {}) -> Optional[Sequence[ModelType]]:
         """
-        Delete all records
-        :param session: AsyncSession from SQLAlchemy
+        Delete all records.
+
+        Args:
+            session(object): AsyncSession from SQLAlchemy.
+            where(dict): filters of fields to delete.
+        Returns:
+            A sequence of deleted rows, if any.
         """
         stmt = sql_delete(self.model)
+        if len(where) > 0:
+            valid_fields: dict = await validate_params(self.model, where)
+            if len(valid_fields) > 0:
+                for key, value in valid_fields.items():
+                    stmt = stmt.where(
+                        getattr(self.model, key) == value
+                    )
 
-        await session.execute(stmt)
+        result = await session.execute(stmt.returning(self.model))
+        return result.scalars().all()
 
 
 if __name__ == "__main__":
