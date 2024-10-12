@@ -5,11 +5,13 @@ from typing import Optional
 from fastapi import (
     status,
 )
+from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 
 from app.utils.task_logger import create_logger
 from app.v1.users import User
 from app.base.services import Service
-from app.v1.users import Social_Login
+from app.v1.users import SocialRegister
 from app.v1.users.schema import (
     UserMeOut,
     UserBase,
@@ -36,7 +38,7 @@ class UserService(Service):
             session -- Database session object
         Return: new user created.
         """
-        social_login = Social_Login(**schema)
+        social_login = SocialRegister(**schema)
         session.add(social_login)
         await session.commit()
 
@@ -60,7 +62,7 @@ class UserService(Service):
 
         return result.scalar_one_or_none()
 
-    async def get_user_profile(self, user: User, session: AsyncSession) -> UserMeOut:
+    async def get_user_profile(self, user: User, session: AsyncSession) -> JSONResponse:
         """
         Fetch user data.
 
@@ -70,7 +72,7 @@ class UserService(Service):
         Return: User Data
         """
         profile = await profile_service.fetch({"user_id": user.id}, session)
-        return UserMeOut(
+        userme_out = UserMeOut(
             status_code=status.HTTP_200_OK,
             message="User data retrieved successfuly",
             data=UserProfile(
@@ -78,6 +80,14 @@ class UserService(Service):
                 profile=ProfileBase.model_validate(profile, from_attributes=True)
             )
         )
+
+        response = JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content=jsonable_encoder(
+                userme_out
+            )
+        )
+        return response
 
 
 user_service = UserService()
