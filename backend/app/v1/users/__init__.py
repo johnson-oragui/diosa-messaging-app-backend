@@ -1,1 +1,1 @@
-from app.v1.users.models import User, Social_Login
+from app.v1.users.models import User, SocialRegister
