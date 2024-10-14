@@ -63,7 +63,7 @@ def upgrade() -> None:
     op.create_index(op.f('ix_chat_profiles_id'), 'profiles', ['id'], unique=False, schema='chat')
     op.create_index(op.f('ix_chat_profiles_user_id'), 'profiles', ['user_id'], unique=True, schema='chat')
     op.create_table('rooms',
-    sa.Column('room_name', sa.String(length=40), nullable=False),
+    sa.Column('room_name', sa.String(length=130), nullable=False),
     sa.Column('creator_id', sa.String(length=60), nullable=False),
     sa.Column('room_type', room_type_enum, nullable=False),
     sa.Column('description', sa.String(), nullable=True),
@@ -78,6 +78,7 @@ def upgrade() -> None:
     op.create_index(op.f('ix_chat_rooms_created_at'), 'rooms', ['created_at'], unique=False, schema='chat')
     op.create_index(op.f('ix_chat_rooms_creator_id'), 'rooms', ['creator_id'], unique=False, schema='chat')
     op.create_index(op.f('ix_chat_rooms_id'), 'rooms', ['id'], unique=False, schema='chat')
+    op.create_index(op.f('ix_chat_rooms_idempotency_key'), 'rooms', ['idempotency_key'], unique=True, schema='chat')
     op.create_table('socialregisters',
     sa.Column('user_id', sa.String(length=60), nullable=False),
     sa.Column('provider', sa.String(), nullable=False),
@@ -135,6 +136,7 @@ def upgrade() -> None:
     op.create_table('roommembers',
     sa.Column('user_id', sa.String(length=60), nullable=False),
     sa.Column('room_id', sa.String(length=60), nullable=False),
+    sa.Column('idempotency_key', sa.String(), nullable=True),
     sa.Column('room_type', room_type_enum, nullable=False),
     sa.Column('invited_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('is_admin', sa.Boolean(), nullable=False),
@@ -149,6 +151,7 @@ def upgrade() -> None:
     )
     op.create_index(op.f('ix_chat_roommembers_created_at'), 'roommembers', ['created_at'], unique=False, schema='chat')
     op.create_index(op.f('ix_chat_roommembers_id'), 'roommembers', ['id'], unique=False, schema='chat')
+    op.create_index(op.f('ix_chat_roommembers_idempotency_key'), 'roommembers', ['idempotency_key'], schema='chat')
     op.create_index(op.f('ix_chat_roommembers_room_id'), 'roommembers', ['room_id'], unique=False, schema='chat')
     op.create_index(op.f('ix_chat_roommembers_user_id'), 'roommembers', ['user_id'], unique=False, schema='chat')
     # ### end Alembic commands ###
