@@ -236,6 +236,49 @@ class RoomService(Service):
         public_rooms = result.scalars().all()
         return public_rooms
 
+    async def fetch_rooms_user_belongs_to(self, user_id: str, session: AsyncSession) -> Sequence[Room]:
+        """
+        Retrieves all private/public rooms a user belongs to.
+
+        Args:
+            user_id(str): the id of the user.
+            session(object): database session object.
+        Returns:
+            list of rooms a user belongs to or empty list.
+        """
+        stmt = select(Room).join(
+            Room.room_members
+        ).where(
+            RoomMember.user_id == user_id,
+            RoomMember.idempotency_key == None
+        )
+
+        result = await session.execute(stmt)
+
+        return result.scalars().all()
+
+    async def fetch_user_direct_message_rooms(self, user_id: str, session: AsyncSession) -> Sequence[Room]:
+        """
+        Retrieves all direct-message rooms a user has.
+
+        Args:
+            user_id(str): the id of the user.
+            session(object): database session object.
+        Returns:
+            list of rooms a user belongs to or empty list.
+        """
+        stmt = select(Room).join(
+            Room.room_members
+        ).where(
+            RoomMember.user_id == user_id,
+            RoomMember.room_type == "direct_message"
+        )
+
+        result = await session.execute(stmt)
+
+        return result.scalars().all()
+
+
 class RoomMemberService(Service):
     """
     Service class for Room
