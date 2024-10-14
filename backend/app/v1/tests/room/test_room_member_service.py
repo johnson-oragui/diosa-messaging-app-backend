@@ -80,7 +80,7 @@ class TestRoommemberService:
         new_user = await user_service.create(mock_jayson_user_dict, test_get_session)
         mock_public_room_one_dict["creator_id"] = new_user.id
 
-        _, room_member = await room_service.create_a_public_or_private_room(
+        _, room_member, _ = await room_service.create_a_public_or_private_room(
             room_name=mock_public_room_one_dict["room_name"],
             room_type="private",
             creator_id=new_user.id,
