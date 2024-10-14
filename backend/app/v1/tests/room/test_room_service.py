@@ -276,3 +276,64 @@ class TestRoomService:
 
         assert len(public_rooms) == 1
         assert public_rooms[0].room_type != "private"
+
+    async def test_fetch_rooms_user_belongs_to(self,
+                                        mock_johnson_user_dict,
+                                        mock_public_room_one_dict,
+                                        mock_private_room_one_dict,
+                                        test_get_session,
+                                        test_setup):
+        """
+        Test fetch_rooms_user_belongs_to method
+        """
+        johnson = await user_service.create(mock_johnson_user_dict, test_get_session)
+
+        await room_service.create_a_public_or_private_room(
+            room_name=mock_private_room_one_dict["room_name"],
+            room_type=mock_private_room_one_dict["room_type"],
+            creator_id=johnson.id,
+            session=test_get_session,
+            messages_deletable=False,
+        )
+        await room_service.create_a_public_or_private_room(
+            room_name=mock_public_room_one_dict["room_name"],
+            room_type=mock_public_room_one_dict["room_type"],
+            creator_id=johnson.id,
+            session=test_get_session,
+            messages_deletable=False,
+        )
+
+        rooms = await room_service.fetch_rooms_user_belongs_to(
+            johnson.id,
+            test_get_session
+        )
+
+        assert len(rooms) == 2
+        assert rooms[0].room_type == "private"
+        assert rooms[1].room_type == "public"
+
+    async def test_fetch_user_direct_message_rooms(self,
+                                        mock_johnson_user_dict,
+                                        mock_jayson_user_dict,
+                                        test_get_session,
+                                        test_setup):
+        """
+        Test fetch_user_direct_message_rooms method
+        """
+        johnson = await user_service.create(mock_johnson_user_dict, test_get_session)
+        jayson = await user_service.create(mock_jayson_user_dict, test_get_session)
+
+        await room_service.create_direct_message_room(
+            user_id_1=johnson.id,
+            user_id_2=jayson.id,
+            session=test_get_session,
+        )
+
+        rooms = await room_service.fetch_user_direct_message_rooms(
+            johnson.id,
+            test_get_session
+        )
+
+        assert len(rooms) == 1
+        assert rooms[0].room_type != "private"
+        assert rooms[0].room_type == "direct_message"
