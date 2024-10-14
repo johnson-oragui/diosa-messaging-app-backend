@@ -3,9 +3,11 @@ Room Services Module
 """
 from typing import Sequence, Optional, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_
+from sqlalchemy import select
+import hashlib
 
 from app.base.services import Service
+from app.v1.users.services import user_service
 from app.v1.rooms import (
     Room,
     RoomMember,
@@ -15,12 +17,46 @@ from app.core.custom_exceptions import (
     RoomNotFoundError,
     UserNotAMemberError,
     UserNotAnAdminError,
-    InvitationNotFoundError
+    InvitationNotFoundError,
+    UserDoesNotExistError
 )
 from app.utils.task_logger import create_logger
 
 logger = create_logger("Room Service")
-    
+
+
+async def generate_dm_idempotency_key(user_id_1: str, user_id_2: str) -> str:
+    """
+    Generates an idempotency key for room_members_tables.
+    The order of the id passed does not matter, the IDs are sorted and would
+    always generate the hash in the same order.
+
+    Args:
+        user_id_1(str): the user id of the first user.
+        user_id_2(str): the user id of the second user.
+    Returns:
+        hashed string.
+    """
+    user_ids = sorted([user_id_1, user_id_2])
+    key = f"{user_ids[0]}:{user_ids[1]}"
+
+    return hashlib.sha256(string=key.encode()).hexdigest()
+
+async def generate_public_private_idempotency_key(creator_id: str, room_type: str, room_name: str) -> str:
+    """
+    Generates an idempotency key for room_members_tables on private/public rooms.
+
+    Args:
+        creator_id(str): the user id of the user creating the room.
+        room_type(str): the type(private/public) of room been created.
+        room_name(str): the name of the room been created.
+    Returns:
+        hashed string.
+    """
+    sorted_list = sorted([creator_id, room_type, room_name])
+    key = f"{sorted_list[0]}:{sorted_list[1]}:{sorted_list[2]}"
+
+    return hashlib.sha256(string=key.encode()).hexdigest()
 
 class RoomService(Service):
     """
@@ -35,7 +71,7 @@ class RoomService(Service):
                             session: AsyncSession,
                             room_type: str = "private",
                             description: str = "",
-                            messages_deletable: bool = True) -> Tuple[Optional[Room], Optional[RoomMember]]:
+                            messages_deletable: bool = True) -> Tuple[Optional[Room], Optional[RoomMember], Optional[str]]:
         """
         Create a room private or public room and make the creator an admin.
 
@@ -50,14 +86,37 @@ class RoomService(Service):
             tuple(Room, RoomMember): if room is created, and tuple(None, None) if not.
         """
         if room_type == "direct_message":
-            return None, None
+            return None, None, None
+        idempotency_key = await generate_public_private_idempotency_key(
+            creator_id=creator_id,
+            room_type=room_type,
+            room_name=room_name
+        )
+        # check if room already created.
+        room_exists = await self.fetch(
+            {"idempotency_key": idempotency_key},
+            session
+        )
+        if room_exists:
+            room_member = await room_member_service.fetch(
+                {
+                    "room_id": room_exists.id,
+                    "user_id": creator_id,
+                    "is_admin": True,
+                    "room_type": room_exists.room_type,
+                },
+                session,
+            )
+            logger.info(msg=f"Room {room_exists.id} ({room_type}) already created by user {creator_id}.")
+            return room_exists, room_member, "exists"
         new_room = await self.create(
             {
                 "creator_id": creator_id,
                 "room_type": room_type,
                 "room_name": room_name,
                 "description": description,
-                "messages_deletable": messages_deletable
+                "messages_deletable": messages_deletable,
+                "idempotency_key": idempotency_key
             },
             session,
         )
@@ -73,13 +132,15 @@ class RoomService(Service):
         )
 
         logger.info(msg=f"Room {new_room.id} ({room_type}) created by user {creator_id}.")
-        return new_room, room_member
+        return new_room, room_member, None
 
     async def create_direct_message_room(self, user_id_1: str,
                                          user_id_2: str,
-                                         session: AsyncSession) -> Room:
+                                         session: AsyncSession) -> Tuple[Room, Sequence[RoomMember], Optional[str]]:
         """
         Create a direct-message type of room.
+        Checks if a direct-message room already exists, if exists, returns the
+        room and the members.
 
         Args:
             user_id_1(str): The user_id of the engaging user.
@@ -87,54 +148,72 @@ class RoomService(Service):
             session(object): database session object.
         Returns:
             Room: The room created.
+        Raises:
+            UserDoesNotExistError if user does not exists, or if user is same with room creator.
         """
-        # Check if a direct message room already exists between these two users
-        stmt = select(Room).join(
-            RoomMember, Room.id == RoomMember.room_id
-        ).filter(
-            Room.room_type == "direct_message"
-        ).filter(
-            or_(
-                RoomMember.user_id == user_id_1,
-                RoomMember.user_id == user_id_2
-            )
-        )
-        result = await session.execute(stmt)
-        existing_room = result.scalar_one_or_none()
+        # check if user_id_1 is same with user_id_2
+        if user_id_1 == user_id_2:
+            raise UserDoesNotExistError(message=f"User {user_id_1} and User {user_id_2} cannot be the same")
 
-        if existing_room:
+        # check if the user exists before creating a room
+        user_exists = await user_service.fetch(
+            {"id": user_id_2},
+            session
+        )
+        if not user_exists:
+            raise UserDoesNotExistError(f"User {user_id_2} does not exists")
+
+        idempotency_key = await generate_dm_idempotency_key(
+            user_id_1=user_id_1,
+            user_id_2=user_id_2
+        )
+        room_members = await room_member_service.fetch_all(
+            {"idempotency_key": idempotency_key},
+            session
+        )
+
+        if room_members:
+            logger.info(msg=f"members: {room_members}")
+            existing_room = await room_service.fetch(
+                {
+                    "id": room_members[0].room_id
+                },
+                session=session
+            )
             # Return existing DM room
-            return existing_room
+            return existing_room, room_members, "exists"
 
         # Create new DM room if DM room does not exists
         new_dm_room = await self.create(
             {
                 "creator_id": user_id_1,
                 "room_type": "direct_message",
-                "room_name": f"DM-{user_id_1}-{user_id_2}",
+                "room_name": f"DM-{user_id_1}-and-{user_id_2}",
             },
             session
         )
 
         # Add both users to the room
-        await room_member_service.create_all(
+        room_members = await room_member_service.create_all(
             [
                 {
                     "user_id": user_id_1,
                     "is_admin": True,
                     "room_id": new_dm_room.id,
-                    "room_type": new_dm_room.room_type
+                    "room_type": new_dm_room.room_type,
+                    "idempotency_key": idempotency_key,
                 },
                 {
                     "user_id": user_id_2,
                     "is_admin": True,
                     "room_id": new_dm_room.id,
-                    "room_type": new_dm_room.room_type
+                    "room_type": new_dm_room.room_type,
+                    "idempotency_key": idempotency_key,
                 }
             ],
             session
         )
-        return new_dm_room
+        return new_dm_room, room_members, None
 
     async def search_public_rooms(self, keyword: str, session: AsyncSession) -> Sequence[Room]:
         """
