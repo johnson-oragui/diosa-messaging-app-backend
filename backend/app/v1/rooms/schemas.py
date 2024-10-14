@@ -77,10 +77,7 @@ class RoomCreateSchema(BaseModel):
 
         values["room_name"] = normalize("NFKC", clean(room_name))
         values["room_type"] = normalize("NFKC", clean(room_type))
-            
-
         return values
-        
 
 class CreateDirectMessageSchema(BaseModel):
     """
@@ -155,3 +152,16 @@ class RoomSchemaOut(BaseModel):
     status_code: int = Field(examples=[201])
     message: str = Field(examples=["Successful"])
     data: RoomAndRoomMembersBase
+
+class RoomBelongsToResponse(BaseModel):
+    """
+    Class for rooms user belongs to response.
+    """
+    status_code: int = Field(default=200, examples=[200])
+    message: str = Field(default="Rooms Retrieved Successfully", examples=["Rooms Retrieved Successfully"])
+    data: List[Optional[RoomBase]]
+
+__all__ = [
+    "RoomCreateSchema", "RoomSchemaOut", "RoomAndRoomMembersBase", "RoomBase",
+    "RoomMembersBase", "CreateDirectMessageSchema", "RoomBelongsToResponse",
+]
