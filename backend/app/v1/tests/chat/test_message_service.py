@@ -23,7 +23,7 @@ class TestMessageService:
         jayson = await user_service.create(mock_jayson_user_dict, test_get_session)
         mock_public_room_one_dict["creator_id"] = jayson.id
 
-        new_room, _ = await room_service.create_a_public_or_private_room(
+        new_room, _, _ = await room_service.create_a_public_or_private_room(
             room_name=mock_public_room_one_dict["room_name"],
             creator_id=jayson.id,
             session=test_get_session,
@@ -56,7 +56,7 @@ class TestMessageService:
 
         mock_public_room_one_dict["creator_id"] = jayson.id
 
-        new_room, _ = await room_service.create_a_public_or_private_room(
+        new_room, _, _ = await room_service.create_a_public_or_private_room(
             room_name=mock_public_room_one_dict["room_name"],
             creator_id=jayson.id,
             session=test_get_session,
@@ -96,7 +96,7 @@ class TestMessageService:
         jayson = await user_service.create(mock_jayson_user_dict, test_get_session)
         mock_public_room_one_dict["creator_id"] = jayson.id
 
-        new_room, _ = await room_service.create_a_public_or_private_room(
+        new_room, _, _ = await room_service.create_a_public_or_private_room(
             room_name=mock_public_room_one_dict["room_name"],
             creator_id=jayson.id,
             session=test_get_session,
@@ -139,7 +139,7 @@ class TestMessageService:
 
         mock_public_room_one_dict["creator_id"] = jayson.id
 
-        new_room, _ = await room_service.create_a_public_or_private_room(
+        new_room, _, _ = await room_service.create_a_public_or_private_room(
             room_name=mock_public_room_one_dict["room_name"],
             creator_id=jayson.id,
             session=test_get_session,
@@ -190,7 +190,7 @@ class TestMessageService:
         jayson = await user_service.create(mock_jayson_user_dict, test_get_session)
         mock_public_room_one_dict["creator_id"] = jayson.id
 
-        new_room, _ = await room_service.create_a_public_or_private_room(
+        new_room, _, _ = await room_service.create_a_public_or_private_room(
             room_name=mock_public_room_one_dict["room_name"],
             creator_id=jayson.id,
             session=test_get_session,
@@ -241,7 +241,7 @@ class TestMessageService:
 
         mock_public_room_one_dict["creator_id"] = jayson.id
 
-        new_room, _ = await room_service.create_a_public_or_private_room(
+        new_room, _, _ = await room_service.create_a_public_or_private_room(
             room_name=mock_public_room_one_dict["room_name"],
             creator_id=jayson.id,
             session=test_get_session,
@@ -298,7 +298,7 @@ class TestMessageService:
         jayson = await user_service.create(mock_jayson_user_dict, test_get_session)
         mock_public_room_one_dict["creator_id"] = jayson.id
 
-        new_room, _ = await room_service.create_a_public_or_private_room(
+        new_room, _, _ = await room_service.create_a_public_or_private_room(
             room_name=mock_public_room_one_dict["room_name"],
             creator_id=jayson.id,
             session=test_get_session,
@@ -347,7 +347,7 @@ class TestMessageService:
         johnson = await user_service.create(mock_johnson_user_dict, test_get_session)
         mock_public_room_one_dict["creator_id"] = jayson.id
 
-        new_room, _ = await room_service.create_a_public_or_private_room(
+        new_room, _, _ = await room_service.create_a_public_or_private_room(
             room_name=mock_public_room_one_dict["room_name"],
             creator_id=jayson.id,
             session=test_get_session,
@@ -395,7 +395,7 @@ class TestMessageService:
         johnson = await user_service.create(mock_johnson_user_dict, test_get_session)
         mock_public_room_one_dict["creator_id"] = jayson.id
 
-        new_room, _ = await room_service.create_a_public_or_private_room(
+        new_room, _, _ = await room_service.create_a_public_or_private_room(
             room_name=mock_public_room_one_dict["room_name"],
             creator_id=jayson.id,
             session=test_get_session,
@@ -451,7 +451,7 @@ class TestMessageService:
         johnson = await user_service.create(mock_johnson_user_dict, test_get_session)
         mock_public_room_one_dict["creator_id"] = jayson.id
 
-        new_room = await room_service.create_direct_message_room(
+        new_room, _, _ = await room_service.create_direct_message_room(
             user_id_1=jayson.id,
             user_id_2=johnson.id,
             session=test_get_session,
@@ -504,7 +504,7 @@ class TestMessageService:
         johnson = await user_service.create(mock_johnson_user_dict, test_get_session)
         mock_private_room_one_dict["creator_id"] = jayson.id
 
-        new_room, _ = await room_service.create_a_public_or_private_room(
+        new_room, _, _ = await room_service.create_a_public_or_private_room(
             room_name=mock_private_room_one_dict["room_name"],
             creator_id=jayson.id,
             session=test_get_session,
