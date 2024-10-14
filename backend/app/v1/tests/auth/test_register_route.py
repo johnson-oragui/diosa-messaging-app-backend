@@ -29,6 +29,45 @@ class TestRegisterRoute:
         assert "profile" in data["data"]
 
     @pytest.mark.asyncio
+    async def test_register_idempotency(self,
+                            client,
+                            mock_johnson_user_dict,
+                            test_setup):
+        """
+        Test register user route idempotency.
+        """
+        mock_johnson_user_dict["confirm_password"] = mock_johnson_user_dict["password"]
+        response = client.post(
+            url="/api/v1/auth/register",
+            json=mock_johnson_user_dict
+        )
+
+        assert response.status_code == 201
+
+        data = response.json()
+
+        assert data["status_code"] == 201
+        assert data["message"] == "User Registered Successfully"
+        assert "data" in data
+        assert "user" in data["data"]
+        assert "profile" in data["data"]
+
+        response2 = client.post(
+            url="/api/v1/auth/register",
+            json=mock_johnson_user_dict
+        )
+
+        assert response2.status_code == 201
+
+        data2 = response2.json()
+
+        assert data2["status_code"] == 201
+        assert data2["message"] == "User Already Registered"
+        assert "data" in data2
+        assert "user" in data2["data"]
+        assert "profile" in data2["data"]
+
+    @pytest.mark.asyncio
     async def test_missing_email(self,
                                  client):
         """
