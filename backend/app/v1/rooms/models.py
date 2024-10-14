@@ -26,7 +26,7 @@ class Room(ModelMixin, Base):
     """
     Class representing rooms table
     """
-    room_name: Mapped[str] = mapped_column(String(40))
+    room_name: Mapped[str] = mapped_column(String(130))
     creator_id: Mapped[str] = mapped_column(
         String(60), ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
@@ -34,6 +34,7 @@ class Room(ModelMixin, Base):
 
     description: Mapped[str] = mapped_column(nullable=True)
     messages_deletable: Mapped[bool] = mapped_column(default=True)
+    idempotency_key: Mapped[str] = mapped_column(nullable=True)
 
     owner: Mapped["User"] = relationship(
         "User", back_populates="rooms_created", uselist=False
@@ -48,6 +49,12 @@ class Room(ModelMixin, Base):
 
     invitations: Mapped["RoomInvitation"] = relationship(
         "RoomInvitation", back_populates="room", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            idempotency_key, name="uq_room_idempotency_key"
+        ),
     )
 
 
@@ -66,6 +73,7 @@ class RoomMember(ModelMixin, Base):
     )
     room_type: Mapped[str] = mapped_column(room_type_enum)
     is_admin: Mapped[bool] = mapped_column(default=False)
+    idempotency_key: Mapped[str] = mapped_column(nullable=True)
 
     member: Mapped["User"] = relationship(
         "User", back_populates="rooms_belongs_to", uselist=False
