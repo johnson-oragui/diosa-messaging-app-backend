@@ -1,11 +1,5 @@
 from typing import Annotated
-from fastapi import (
-    APIRouter,
-    Depends,
-    Request,
-    status,
-    HTTPException
-)
+from fastapi import APIRouter, Depends, Request, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.utils.task_logger import create_logger
@@ -14,31 +8,26 @@ from app.v1.auth.dependencies import (
     get_current_active_user,
 )
 from app.database.session import get_session
-from app.v1.rooms.services import room_service
-from app.v1.rooms.schemas import (
-    RoomCreateSchema,
-    RoomSchemaOut,
-    RoomAndRoomMembersBase,
-    RoomBase,
-    RoomMembersBase,
-    CreateDirectMessageSchema,
+from app.v1.rooms.services import (
+    room_service,
 )
-from app.core.custom_exceptions import (
-    UserDoesNotExistError
-)
+from app.v1.rooms.schemas import *
+from app.core.custom_exceptions import UserDoesNotExistError
 
 logger = create_logger("Rooms Route")
 
 rooms = APIRouter(prefix="/rooms")
 
 
-@rooms.post("/create",
-            response_model=RoomSchemaOut,
-            status_code=status.HTTP_201_CREATED)
-async def create_room(schema: RoomCreateSchema,
-                   request: Request,
-                   token: Annotated[str, Depends(check_for_access_token)],
-                   session: Annotated[AsyncSession, Depends(get_session)]):
+@rooms.post(
+    "/create", response_model=RoomSchemaOut, status_code=status.HTTP_201_CREATED
+)
+async def create_room(
+    schema: RoomCreateSchema,
+    request: Request,
+    token: Annotated[str, Depends(check_for_access_token)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
     """
     Creates a public or private room.
     """
@@ -53,42 +42,65 @@ async def create_room(schema: RoomCreateSchema,
         room_type=schema.room_type,
         session=session,
         description=schema.description,
-        messages_deletable=schema.messages_deletable
+        messages_deletable=schema.messages_deletable,
     )
     if not room or not room_member:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
     room_and_room_members = RoomAndRoomMembersBase(
         room=RoomBase.model_validate(room, from_attributes=True),
-        room_members=[RoomMembersBase.model_validate(
-            room_member,
-            from_attributes=True
-        )]
+        room_members=[
+            RoomMembersBase.model_validate(room_member, from_attributes=True)
+        ],
     )
     message = "Room Created Successfully"
     if exists:
         message = "Room already exists"
     room_out = RoomSchemaOut(
-        status_code=201,
-        message=message,
-        data=room_and_room_members
+        status_code=201, message=message, data=room_and_room_members
     )
     return room_out
+
+
+# TODO: get private/public room
+@rooms.get("", status_code=status.HTTP_200_OK)
+async def get_rooms(
+    request: Request,
+    token: Annotated[str, Depends(check_for_access_token)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """
+    Retrieves all rooms a user belongs to.
+    """
+    user = await get_current_active_user(
+        access_token=token,
+        request=request,
+        session=session,
+    )
+
+    rooms = await room_service.fetch_rooms_user_belongs_to(
+        user.id,
+        session
+    )
+
+    rooms_base: list| None = [RoomBase.model_validate(room, from_attributes=True) for room in rooms if room]
+
+    return RoomBelongsToResponse(data=rooms_base)
 
 # TODO: delete private/public room
 # TODO: delete direct-message room
 # TODO: update private/public room
-# TODO: get private/public room
-# TODO: get direct_message room
 
-@rooms.post("/create/dm",
-            response_model=RoomSchemaOut,
-            status_code=status.HTTP_201_CREATED)
-async def create_direct_message_room(schema: CreateDirectMessageSchema,
-                   request: Request,
-                   token: Annotated[str, Depends(check_for_access_token)],
-                   session: Annotated[AsyncSession, Depends(get_session)]):
+
+
+@rooms.post(
+    "/create/dm", response_model=RoomSchemaOut, status_code=status.HTTP_201_CREATED
+)
+async def create_direct_message_room(
+    schema: CreateDirectMessageSchema,
+    request: Request,
+    token: Annotated[str, Depends(check_for_access_token)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
     """
     Creates a direct-message room.
     """
@@ -107,16 +119,43 @@ async def create_direct_message_room(schema: CreateDirectMessageSchema,
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=exc.args[0])
     room_and_room_members = RoomAndRoomMembersBase(
         room=RoomBase.model_validate(room, from_attributes=True),
-        room_members=[RoomMembersBase.model_validate(member, from_attributes=True) for member in room_members]
+        room_members=[
+            RoomMembersBase.model_validate(member, from_attributes=True)
+            for member in room_members
+        ],
     )
     message = "Room Created Successfully"
     if exists:
         message = "Room already exists"
     room_out = RoomSchemaOut(
-        status_code=201,
-        message=message,
-        data=room_and_room_members
+        status_code=201, message=message, data=room_and_room_members
     )
     return room_out
+
+# TODO: get direct_message room
+@rooms.get("/dm", status_code=status.HTTP_200_OK)
+async def get_direct_message_room(
+    request: Request,
+    token: Annotated[str, Depends(check_for_access_token)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """
+    Retrieves all direct_message rooms a user has.
+    """
+    user = await get_current_active_user(
+        access_token=token,
+        request=request,
+        session=session,
+    )
+
+    rooms = await room_service.fetch_user_direct_message_rooms(
+        user.id,
+        session
+    )
+
+    rooms_base: list| None = [RoomBase.model_validate(room, from_attributes=True) for room in rooms if room]
+
+    return RoomBelongsToResponse(data=rooms_base)
+
 
 __all__ = ["rooms"]
