@@ -280,6 +280,51 @@ class TestCreatePrivatePublicRoomRoute:
         assert data["message"] == 'Validation Error.'
         assert data["data"]["msg"] == 'Value error, messages_deletable must be either true of false'
 
+    @pytest.mark.asyncio
+    async def test_get_rooms_route(self,
+                                   client,
+                                   mock_johnson_user_dict,
+                                   mock_user_id,
+                                   test_get_session,
+                                   test_setup):
+        """
+        Test get_rooms route.
+        """
+        mock_johnson_user_dict["id"] = mock_user_id
+
+        _ = await user_service.create(mock_johnson_user_dict, test_get_session)
+
+        response = client.post(
+            url="/api/v1/rooms/create",
+            json={
+                "room_name": "new-room",
+                "room_type": "public",
+                "messages_deletable": True
+            },
+            headers={
+                "Authorization": f"Bearer fake"
+            }
+        )
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["message"] == "Room Created Successfully"
+        assert isinstance(data["data"]["room"], dict)
+        assert isinstance(data["data"]["room_members"], list)
+
+        response2 = client.get(
+            url="/api/v1/rooms",
+            headers={
+                "Authorization": "Bearer fake",
+            }
+        )
+
+        assert response2.status_code == 200
+
+        data2 = response2.json()
+
+        assert data2["message"] == "Rooms Retrieved Successfully"
+        assert data2["data"][0] == data["data"]["room"]
 
 class TestCreateDirectMessageRoomRoute:
     """
@@ -497,4 +542,62 @@ class TestCreateDirectMessageRoomRoute:
         assert data["status_code"] == 422
         assert data["message"] == "Validation Error."
         assert data["data"]["msg"] == "Value error, receiver_id cannot be null"
-        
+
+    @pytest.mark.asyncio
+    async def test_get_direct_message_room_route(self,
+                                               client,
+                                               mock_johnson_user_dict,
+                                               mock_jayson_user_dict,
+                                               mock_user_id,
+                                               test_get_session,
+                                               test_setup):
+        """
+        Test get direct messsage room route.
+        """
+        jayson_response = client.post(
+            url="/api/v1/auth/register",
+            json=mock_jayson_user_dict
+        )
+
+        assert jayson_response.status_code == 201
+        jayson_id = jayson_response.json()["data"]["user"]["id"]
+
+        mock_johnson_user_dict["id"] = mock_user_id
+
+        johnson_user = await user_service.create(
+            mock_johnson_user_dict,
+            test_get_session
+        )
+
+        response = client.post(
+            url="/api/v1/rooms/create/dm",
+            json={
+                "receiver_id": jayson_id,
+            },
+            headers={
+                "Authorization": "Bearer none"
+            }
+        )
+
+        assert response.status_code == 201
+
+        data = response.json()
+
+        assert data["status_code"] == 201
+        assert data["message"] == "Room Created Successfully"
+        assert isinstance(data["data"]["room"], dict)
+        assert isinstance(data["data"]["room_members"], list)
+
+        response2 = client.get(
+            url="/api/v1/rooms/dm",
+            headers={
+                "Authorization": "Bearer fake"
+            },
+        )
+
+        assert response2.status_code == 200
+
+        data2 = response2.json()
+
+        assert data2["message"] == "Rooms Retrieved Successfully"
+        assert data2["data"][0] == data["data"]["room"]
