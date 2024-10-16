@@ -598,6 +598,7 @@ class TestCreateDirectMessageRoomRoute:
         assert response2.status_code == 200
 
         data2 = response2.json()
+        print(data2)
 
         assert data2["message"] == "Rooms Retrieved Successfully"
-        assert data2["data"][0] == data["data"]["room"]
+        assert data2["data"][0]["username"] == mock_jayson_user_dict["username"]

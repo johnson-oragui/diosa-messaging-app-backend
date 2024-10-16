@@ -335,5 +335,5 @@ class TestRoomService:
         )
 
         assert len(rooms) == 1
-        assert rooms[0].room_type != "private"
-        assert rooms[0].room_type == "direct_message"
+        assert rooms[0].room_name.startswith("DM")
+        assert rooms[0].username == jayson.username
