@@ -1,13 +1,15 @@
 """
 Room Services Module
 """
-from typing import Sequence, Optional, Tuple
+from typing import Sequence, Optional, Tuple, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import aliased
 import hashlib
 
 from app.base.services import Service
-from app.v1.users.services import user_service
+from app.v1.users.services import user_service, User
+from app.v1.profile import Profile
 from app.v1.rooms import (
     Room,
     RoomMember,
@@ -21,6 +23,7 @@ from app.core.custom_exceptions import (
     UserDoesNotExistError
 )
 from app.utils.task_logger import create_logger
+from app.v1.rooms.schemas import DMBase
 
 logger = create_logger("Room Service")
 
@@ -257,26 +260,62 @@ class RoomService(Service):
 
         return result.scalars().all()
 
-    async def fetch_user_direct_message_rooms(self, user_id: str, session: AsyncSession) -> Sequence[Room]:
+    async def fetch_user_direct_message_rooms(self, user_id: str,
+                                              session: AsyncSession) -> List[Optional[DMBase]]:
         """
         Retrieves all direct-message rooms a user has.
 
         Args:
-            user_id(str): the id of the user.
-            session(object): database session object.
+            user_id (str): the id of the user.
+            session (AsyncSession): database session object.
         Returns:
-            list of rooms a user belongs to or empty list.
+            list[DMBase]: A list of dictionaries containing the other user's ID, username, and avatar URL.
         """
-        stmt = select(Room).join(
-            Room.room_members
+        self_member = aliased(RoomMember, name="self_member")
+        other_member = aliased(RoomMember, name="other_member")
+        user = aliased(User)
+        profile = aliased(Profile)
+        room = aliased(Room)
+
+        stmt = select(
+            room.id,
+            room.room_name,
+            other_member.user_id,
+            user.username,
+            profile.avatar_url,
+        ).select_from(
+            self_member  # Explicitly setting the starting point of the query
+        ).join(
+            room, self_member.room_id == room.id
+        ).join(
+            other_member, self_member.room_id == other_member.room_id
+        ).join(
+            user, other_member.user_id == user.id
+        ).outerjoin(
+            profile, user.id == profile.user_id
         ).where(
-            RoomMember.user_id == user_id,
-            RoomMember.room_type == "direct_message"
+            self_member.user_id == user_id,
+            self_member.room_type == "direct_message",
+            self_member.idempotency_key != None,
+            other_member.user_id != user_id
         )
 
         result = await session.execute(stmt)
+        all_rows = result.fetchall()
+        direct_messages = []
 
-        return result.scalars().all()
+        for row in all_rows:
+            direct_messages.append(
+                DMBase(
+                    room_id=row[0],
+                    room_name=row[1],
+                    user_id=row[2],
+                    username=row[3],
+                    avatar_url=row[4]
+                )
+            )
+
+        return direct_messages
 
 
 class RoomMemberService(Service):
