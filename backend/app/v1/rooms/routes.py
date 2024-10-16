@@ -61,7 +61,6 @@ async def create_room(
     return room_out
 
 
-# TODO: get private/public room
 @rooms.get("", status_code=status.HTTP_200_OK)
 async def get_rooms(
     request: Request,
@@ -85,6 +84,8 @@ async def get_rooms(
     rooms_base: list| None = [RoomBase.model_validate(room, from_attributes=True) for room in rooms if room]
 
     return RoomBelongsToResponse(data=rooms_base)
+
+
 
 # TODO: delete private/public room
 # TODO: delete direct-message room
@@ -132,8 +133,9 @@ async def create_direct_message_room(
     )
     return room_out
 
-# TODO: get direct_message room
-@rooms.get("/dm", status_code=status.HTTP_200_OK)
+
+@rooms.get("/dm", status_code=status.HTTP_200_OK,
+           response_model=AllDirectRoomsResponse)
 async def get_direct_message_room(
     request: Request,
     token: Annotated[str, Depends(check_for_access_token)],
@@ -148,14 +150,12 @@ async def get_direct_message_room(
         session=session,
     )
 
-    rooms = await room_service.fetch_user_direct_message_rooms(
+    direct_msg_rooms = await room_service.fetch_user_direct_message_rooms(
         user.id,
         session
     )
 
-    rooms_base: list| None = [RoomBase.model_validate(room, from_attributes=True) for room in rooms if room]
-
-    return RoomBelongsToResponse(data=rooms_base)
+    return AllDirectRoomsResponse(data=direct_msg_rooms)
 
 
 __all__ = ["rooms"]
