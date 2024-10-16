@@ -6,7 +6,8 @@ from pydantic import (
     Field,
     StringConstraints,
     ConfigDict,
-    model_validator
+    model_validator,
+    HttpUrl
 )
 from unicodedata import normalize
 from bleach import clean
@@ -161,7 +162,24 @@ class RoomBelongsToResponse(BaseModel):
     message: str = Field(default="Rooms Retrieved Successfully", examples=["Rooms Retrieved Successfully"])
     data: List[Optional[RoomBase]]
 
+class DMBase(BaseModel):
+    """
+    Class for DM retrieval.
+    """
+    room_id: str
+    room_name: str
+    user_id: str
+    avatar_url: Optional[HttpUrl]
+    username: str
+
+class AllDirectRoomsResponse(RoomBelongsToResponse):
+    """
+    Schema for direct message GET response.
+    """
+    data: List[Optional[DMBase]]
+
 __all__ = [
     "RoomCreateSchema", "RoomSchemaOut", "RoomAndRoomMembersBase", "RoomBase",
     "RoomMembersBase", "CreateDirectMessageSchema", "RoomBelongsToResponse",
+    "AllDirectRoomsResponse",
 ]
