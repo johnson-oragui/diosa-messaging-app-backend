@@ -66,7 +66,7 @@ class RoomCreateSchema(BaseModel):
             raise ValueError("room_type must be either public or private")
 
         # validate messages_deletable
-        if not isinstance(messages_deletable, bool) or not messages_deletable:
+        if not isinstance(messages_deletable, bool) or messages_deletable is None:
             raise ValueError("messages_deletable must be either true of false")
 
         # validate room_name
