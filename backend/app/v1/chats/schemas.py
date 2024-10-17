@@ -42,3 +42,11 @@ class AllMessagesResponse(BaseModel):
         examples=["Messages Retrieved Successfully"]
     )
     data: List[BaseMessage]
+
+class MessageDeleteSchema(BaseModel):
+    """
+    Class for deleting messages.
+    """
+    message_ids: List[int] = Field(
+        examples=[1]
+    )
