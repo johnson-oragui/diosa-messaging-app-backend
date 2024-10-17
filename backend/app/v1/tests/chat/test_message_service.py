@@ -369,10 +369,10 @@ class TestMessageService:
         )
 
         await message_service.delete_message(
-            new_room.id,
-            johnson.id,
-            johnson_message.id,
-            test_get_session
+            room_id=new_room.id,
+            user_id=johnson.id,
+            message_id=johnson_message.id,
+            session=test_get_session
         )
 
         fetched_message = await message_service.fetch(
@@ -418,10 +418,10 @@ class TestMessageService:
         )
         with pytest.raises(CannotDeleteMessageError):
             await message_service.delete_message(
-                new_room.id,
-                johnson.id,
-                johnson_message.id,
-                test_get_session
+                room_id=new_room.id,
+                user_id=johnson.id,
+                message_id=johnson_message.id,
+                session=test_get_session
             )
 
         await message_service.delete_message(
@@ -471,17 +471,17 @@ class TestMessageService:
         )
         with pytest.raises(CannotDeleteMessageError):
             await message_service.delete_message(
-                new_room.id,
-                jayson.id,
-                johnson_message.id,
-                test_get_session
+                room_id=new_room.id,
+                user_id=jayson.id,
+                message_id=johnson_message.id,
+                session=test_get_session
             )
 
         await message_service.delete_message(
-            new_room.id,
-            johnson.id,
-            johnson_message.id,
-            test_get_session
+            room_id=new_room.id,
+            user_id=johnson.id,
+            message_id=johnson_message.id,
+            session=test_get_session
         )
 
         fetched_message = await message_service.fetch(
@@ -528,10 +528,10 @@ class TestMessageService:
 
         with pytest.raises(CannotDeleteMessageError):
             await message_service.delete_message(
-                new_room.id,
-                johnson.id,
-                johnson_message.id,
-                test_get_session
+                room_id=new_room.id,
+                user_id=johnson.id,
+                message_id=johnson_message.id,
+                session=test_get_session
             )
 
     async def test_fetch_room_messages(self,
