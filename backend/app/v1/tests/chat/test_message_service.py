@@ -5,6 +5,7 @@ from app.v1.rooms.services import (
 )
 from app.v1.chats.services import message_service
 from app.v1.users.services import user_service
+from app.v1.profile.services import profile_service
 from app.core.custom_exceptions import CannotDeleteMessageError
 
 
@@ -176,7 +177,7 @@ class TestMessageService:
 
         assert johnson_messages[0].content == fetch_johnson_messages[0].content
         assert johnson_messages[1].content == fetch_johnson_messages[1].content
-        
+
 
 
     async def test_delete(self,
@@ -218,7 +219,7 @@ class TestMessageService:
             },
             test_get_session
         )
-        
+
         fetched_johnson_message = await message_service.fetch(
             {
                 "user_id": jayson.id,
@@ -269,7 +270,7 @@ class TestMessageService:
 
         assert len(johnson_messages) == 2
 
-        
+
 
         await message_service.delete_all(
             session=test_get_session
@@ -533,3 +534,56 @@ class TestMessageService:
                 test_get_session
             )
 
+    async def test_fetch_room_messages(self,
+                          mock_jayson_user_dict,
+                          mock_public_room_one_dict,
+                          test_get_session,
+                          test_setup):
+        """
+        Test fetch room messages.
+        """
+        jayson = await user_service.create(mock_jayson_user_dict, test_get_session)
+        jayson_profile = await profile_service.create({"user_id": jayson.id}, test_get_session)
+
+        mock_public_room_one_dict["creator_id"] = jayson.id
+
+        new_room, _, _ = await room_service.create_a_public_or_private_room(
+            room_name=mock_public_room_one_dict["room_name"],
+            creator_id=jayson.id,
+            session=test_get_session,
+            room_type="private",
+            description="a private room"
+        )
+
+        jayson_messages = await message_service.create_all(
+            [
+                {
+                    "user_id": jayson.id,
+                    "room_id": new_room.id,
+                    "content": "What is happening?",
+                    "chat_type": new_room.room_type,
+                },
+                {
+                    "user_id": jayson.id,
+                    "room_id": new_room.id,
+                    "content": "Anybody here!!!!!",
+                    "chat_type": new_room.room_type,
+                },
+            ],
+            test_get_session
+        )
+
+        assert jayson_messages[0].content == "What is happening?"
+        assert jayson_messages[1].content == "Anybody here!!!!!"
+
+        all_messages = await message_service.fetch_room_messages(
+            room_id=new_room.id,
+            filterer={},
+            session=test_get_session
+        )
+
+        assert all_messages[0].content == jayson_messages[0].content
+        assert all_messages[0].created_at == jayson_messages[0].created_at
+        assert all_messages[0].username == jayson.username
+        assert all_messages[0].first_name == jayson.first_name
+        assert all_messages[0].last_name == jayson.last_name
