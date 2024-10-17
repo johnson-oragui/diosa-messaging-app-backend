@@ -1,6 +1,7 @@
 import pytest
 
 from app.v1.users.services import user_service
+from app.v1.profile.services import profile_service
 from app.v1.chats.services import message_service
 
 
@@ -628,6 +629,10 @@ class TestCreateDirectMessageRoomRoute:
             mock_johnson_user_dict,
             test_get_session
         )
+        _ = await profile_service.create(
+            {"user_id": mock_user_id},
+            test_get_session
+        )
 
         response = client.post(
             url="/api/v1/rooms/create/dm",
@@ -654,18 +659,20 @@ class TestCreateDirectMessageRoomRoute:
                     "room_id": data["data"]["room"]["id"],
                     "user_id": jayson_id,
                     "content": "Hello johnson",
+                    "chat_type": "direct_message",
                 },
                 {
                     "room_id": data["data"]["room"]["id"],
                     "user_id": mock_johnson_user_dict["id"],
                     "content": "Hello Jayson",
+                    "chat_type": "direct_message",
                 }
             ],
             test_get_session
         )
 
         response2 = client.get(
-           url=f'/api/v1/rooms/{data["data"]["room"]["id"]}',
+           url=f'/api/v1/rooms/{data["data"]["room"]["id"]}/messages',
            headers={
                "Authorization": "Bearer fake"
             }
