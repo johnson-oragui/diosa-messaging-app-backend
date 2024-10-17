@@ -31,8 +31,9 @@ class MessageService(Service):
 
     async def delete_message(self, room_id: str,
                              user_id: str,
-                             message_id: str,
-                             session: AsyncSession) -> Optional[Message]:
+                             session: AsyncSession,
+                             message_id: int | None = None,
+                             message_ids: list = []) -> Optional[Message]:
         """
         Delete a message if user is the creator or user is admin.
 
@@ -50,24 +51,41 @@ class MessageService(Service):
         # check if admin set room messages as deletable
         room_message_deletable = await room_service.fetch(
             {
-                "id": room_id
+                "id": room_id,
+                "messages_deletable": True,
             },
             session
         )
-        if room_message_deletable.messages_deletable or room_message_deletable.room_type == "direct_message":
-            # delete message if user is the creator of the message
-            deleted_message = await message_service.delete(
-                {
-                    "user_id": user_id,
-                    "id": message_id
-                },
-                session
-            )
-            if deleted_message:
-                logger.info(msg=f"User member {user_id} deleted the message successfully")
-                return deleted_message
-            else:
-                raise CannotDeleteMessageError(f"Message {message_id} not found, or user {user_id} is not the message creator")
+        if room_message_deletable:
+            if message_id:
+                # delete message if user is the creator of the message or a direct_message
+                deleted_message = await self.delete(
+                    {
+                        "user_id": user_id,
+                        "id": message_id
+                    },
+                    session
+                )
+                if deleted_message:
+                    logger.info(msg=f"User member {user_id} deleted the message successfully")
+                    return deleted_message
+                else:
+                    raise CannotDeleteMessageError("Message not found, or user is not the message owner")
+            elif message_ids:
+                for message_id in message_ids:
+                    # delete message if user is the creator of the message or a direct_message
+                    deleted_message = await self.delete(
+                        {
+                            "user_id": user_id,
+                            "id": message_id
+                        },
+                        session
+                    )
+                    if deleted_message:
+                        logger.info(msg=f"User deleted the message successfully")
+                    else:
+                        raise CannotDeleteMessageError("Message not found, or user is not the message owner")
+                return
 
         # delete message if user is an admin in the room
         user_is_admin = await room_member_service.is_user_admin(
@@ -77,15 +95,32 @@ class MessageService(Service):
         )
         logger.info(msg=f"user_is_admin: {user_is_admin}")
         if user_is_admin:
-            deleted_message = await message_service.delete(
-                {
-                    "id": message_id
-                },
-                session,
-            )
-            logger.info(msg=f"User admin {user_id} deleted the message successfully")
-            return deleted_message
-        raise CannotDeleteMessageError(f"User {user_id} is not allowed to delete the message {message_id}")
+            if message_id:
+                deleted_message = await message_service.delete(
+                    {
+                        "id": message_id
+                    },
+                    session,
+                )
+                if deleted_message:
+                    logger.info(msg=f"User admin {user_id} deleted the message successfully")
+                    return deleted_message
+                else:
+                    raise CannotDeleteMessageError("Message not found")
+            elif message_ids:
+                for message_id in message_ids:
+                    deleted_message = await message_service.delete(
+                        {
+                            "id": message_id
+                        },
+                        session,
+                    )
+                    if deleted_message:
+                        logger.info(msg=f"User member {user_id} deleted the message successfully")
+                        return deleted_message
+                    else:
+                        raise CannotDeleteMessageError("Message not found")
+        raise CannotDeleteMessageError("User is not allowed to delete the message")
 
     async def fetch_room_messages(self, room_id: str,
                                   filterer: dict,
@@ -143,8 +178,6 @@ class MessageService(Service):
                 avatar_url=msg[6]
             )
             room_messages.append(user_message)
-
-        print("result: ", room_messages)
 
         return room_messages
 
