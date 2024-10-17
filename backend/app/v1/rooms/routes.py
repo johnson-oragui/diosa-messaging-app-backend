@@ -11,8 +11,16 @@ from app.database.session import get_session
 from app.v1.rooms.services import (
     room_service,
 )
+from app.v1.chats.services import message_service
 from app.v1.rooms.schemas import *
-from app.core.custom_exceptions import UserDoesNotExistError
+from app.core.custom_exceptions import (
+    UserDoesNotExistError,
+    CannotDeleteMessageError,
+)
+from app.v1.chats.schemas import (
+    AllMessagesResponse,
+    MessageDeleteSchema
+)
 
 logger = create_logger("Rooms Route")
 
@@ -85,13 +93,85 @@ async def get_rooms(
 
     return RoomBelongsToResponse(data=rooms_base)
 
+@rooms.get("/{room_id}/messages", status_code=status.HTTP_200_OK,
+           response_model=AllMessagesResponse)
+async def get_room_messages(room_id: str, request: Request,
+                            token: Annotated[str, Depends(check_for_access_token)],
+                            session: Annotated[AsyncSession, Depends(get_session)]):
+    """
+    retrieves all messages for a specific room.
+    """
+    _ = await get_current_active_user(
+        access_token=token,
+        request=request,
+        session=session
+    )
 
+    messages_list = await message_service.fetch_room_messages(
+        room_id=room_id,
+        filterer={},
+        session=session
+    )
+
+    return AllMessagesResponse(data=messages_list)
+
+@rooms.delete("/{room_id}/messages/{message_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_room_message(room_id: str, message_id: int,
+                              request: Request,
+                              token: Annotated[str, Depends(check_for_access_token)],
+                              session: Annotated[AsyncSession, Depends(get_session)]):
+    """
+    Delete single room message.
+    """
+    user = await get_current_active_user(
+        access_token=token,
+        request=request,
+        session=session
+    )
+    try:
+        _ = await message_service.delete_message(
+            room_id=room_id,
+            user_id=user.id,
+            session=session,
+            message_id=message_id
+        )
+    except CannotDeleteMessageError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"{exc.args[0]}"
+        )
+    return
+
+@rooms.delete("/{room_id}/messages", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_room_messages(room_id: str, request: Request,
+                              token: Annotated[str, Depends(check_for_access_token)],
+                              session: Annotated[AsyncSession, Depends(get_session)],
+                              schema: MessageDeleteSchema):
+    """
+    Delete single or multiple room messages.
+    """
+    user = await get_current_active_user(
+        access_token=token,
+        request=request,
+        session=session
+    )
+    try:
+        _ = await message_service.delete_message(
+            room_id=room_id,
+            user_id=user.id,
+            session=session,
+            message_ids=schema.message_ids
+        )
+    except CannotDeleteMessageError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"{exc.args[0]}"
+        )
+    return
 
 # TODO: delete private/public room
 # TODO: delete direct-message room
 # TODO: update private/public room
-
-
 
 @rooms.post(
     "/create/dm", response_model=RoomSchemaOut, status_code=status.HTTP_201_CREATED
