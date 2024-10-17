@@ -1,6 +1,7 @@
 import pytest
 
 from app.v1.users.services import user_service
+from app.v1.chats.services import message_service
 
 
 class TestCreatePrivatePublicRoomRoute:
@@ -564,7 +565,7 @@ class TestCreateDirectMessageRoomRoute:
 
         mock_johnson_user_dict["id"] = mock_user_id
 
-        johnson_user = await user_service.create(
+        _ = await user_service.create(
             mock_johnson_user_dict,
             test_get_session
         )
@@ -598,7 +599,86 @@ class TestCreateDirectMessageRoomRoute:
         assert response2.status_code == 200
 
         data2 = response2.json()
-        print(data2)
 
         assert data2["message"] == "Rooms Retrieved Successfully"
         assert data2["data"][0]["username"] == mock_jayson_user_dict["username"]
+
+    @pytest.mark.asyncio
+    async def test_get_room_messages_route(self,
+                                               client,
+                                               mock_johnson_user_dict,
+                                               mock_jayson_user_dict,
+                                               mock_user_id,
+                                               test_get_session,
+                                               test_setup):
+        """
+        Test get room messsages route.
+        """
+        jayson_response = client.post(
+            url="/api/v1/auth/register",
+            json=mock_jayson_user_dict
+        )
+
+        assert jayson_response.status_code == 201
+        jayson_id = jayson_response.json()["data"]["user"]["id"]
+
+        mock_johnson_user_dict["id"] = mock_user_id
+
+        _ = await user_service.create(
+            mock_johnson_user_dict,
+            test_get_session
+        )
+
+        response = client.post(
+            url="/api/v1/rooms/create/dm",
+            json={
+                "receiver_id": jayson_id,
+            },
+            headers={
+                "Authorization": "Bearer none"
+            }
+        )
+
+        assert response.status_code == 201
+
+        data = response.json()
+
+        assert data["status_code"] == 201
+        assert data["message"] == "Room Created Successfully"
+        assert isinstance(data["data"]["room"], dict)
+        assert isinstance(data["data"]["room_members"], list)
+
+        messages = await message_service.create_all(
+            [
+                {
+                    "room_id": data["data"]["room"]["id"],
+                    "user_id": jayson_id,
+                    "content": "Hello johnson",
+                },
+                {
+                    "room_id": data["data"]["room"]["id"],
+                    "user_id": mock_johnson_user_dict["id"],
+                    "content": "Hello Jayson",
+                }
+            ],
+            test_get_session
+        )
+
+        response2 = client.get(
+           url=f'/api/v1/rooms/{data["data"]["room"]["id"]}',
+           headers={
+               "Authorization": "Bearer fake"
+            }
+        )
+
+        assert response2.status_code == 200
+
+        data = response2.json()
+
+        assert data["message"] == "Messages Retrieved Successfully"
+        assert data["data"][0]["content"] == messages[0].content
+        assert data["data"][0]["username"] == "jayson"
+        assert data["data"][0]["room_id"] == messages[1].room_id
+        assert data["data"][1]["content"] == messages[1].content
+        assert data["data"][1]["username"] == "johnson"
+        assert data["data"][1]["room_id"] == messages[1].room_id
