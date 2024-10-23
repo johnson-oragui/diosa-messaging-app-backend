@@ -119,7 +119,8 @@ class RoomService(Service):
                 "room_name": room_name,
                 "description": description,
                 "messages_deletable": messages_deletable,
-                "idempotency_key": idempotency_key
+                "idempotency_key": idempotency_key,
+                "is_deleted": False,
             },
             session,
         )
@@ -177,9 +178,10 @@ class RoomService(Service):
 
         if room_members:
             logger.info(msg=f"members: {room_members}")
-            existing_room = await room_service.fetch(
+            existing_room = await self.fetch(
                 {
-                    "id": room_members[0].room_id
+                    "id": room_members[0].room_id,
+                    "is_deleted": False
                 },
                 session=session
             )
@@ -192,6 +194,7 @@ class RoomService(Service):
                 "creator_id": user_id_1,
                 "room_type": "direct_message",
                 "room_name": f"DM-{user_id_1}-and-{user_id_2}",
+                "is_deleted": False,
             },
             session
         )
@@ -229,9 +232,10 @@ class RoomService(Service):
             A list of rooms if the search matches any room.
         """
         stmt = select(Room).where(
-            Room.room_type == "public"
+            Room.room_type == "public",
+            Room.is_deleted != True
         ).where(
-            Room.room_name.ilike(f"%{keyword}%")
+            Room.room_name.ilike(f"%{keyword}%"),
         )
 
         result = await session.execute(stmt)
@@ -253,7 +257,8 @@ class RoomService(Service):
             Room.room_members
         ).where(
             RoomMember.user_id == user_id,
-            RoomMember.idempotency_key == None
+            RoomMember.idempotency_key == None,
+            Room.is_deleted != True
         )
 
         result = await session.execute(stmt)
@@ -297,7 +302,8 @@ class RoomService(Service):
             self_member.user_id == user_id,
             self_member.room_type == "direct_message",
             self_member.idempotency_key != None,
-            other_member.user_id != user_id
+            other_member.user_id != user_id,
+            room.is_deleted != True
         )
 
         result = await session.execute(stmt)
@@ -343,7 +349,8 @@ class RoomMemberService(Service):
         public_room_to_join = await room_service.fetch(
             {
                 "room_id": room_id,
-                "room_type": "public"
+                "room_type": "public",
+                "is_deleted": False,
             },
             session
         )
@@ -377,7 +384,8 @@ class RoomMemberService(Service):
         private_room_to_join = await room_service.fetch(
             {
                 "room_id": room_id,
-                "room_type": "private"
+                "room_type": "private",
+                "is_deleted": False,
             },
             session
         )
@@ -473,7 +481,10 @@ class RoomInvitationService(Service):
             UserNotAnAdminError if it not a public room, and the inviter user is not an admin.
         """
         room = await room_service.fetch(
-            {"id": room_id},
+            {
+                "id": room_id,
+                "is_deleted": False,
+            },
             session
         )
         if room.room_type == "public":
