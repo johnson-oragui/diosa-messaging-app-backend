@@ -1,5 +1,4 @@
 from typing import Annotated, Optional, List
-from uuid import uuid4
 from datetime import datetime, timezone
 from pydantic import (
     BaseModel,
@@ -159,7 +158,10 @@ class RoomBelongsToResponse(BaseModel):
     Class for rooms user belongs to response.
     """
     status_code: int = Field(default=200, examples=[200])
-    message: str = Field(default="Rooms Retrieved Successfully", examples=["Rooms Retrieved Successfully"])
+    message: str = Field(
+        default="Rooms Retrieved Successfully",
+        examples=["Rooms Retrieved Successfully"]
+    )
     data: List[Optional[RoomBase]]
 
 class DMBase(BaseModel):
@@ -178,8 +180,57 @@ class AllDirectRoomsResponse(RoomBelongsToResponse):
     """
     data: List[Optional[DMBase]]
 
+class UpdateRoomSchema(BaseModel):
+    """
+    Class for updating a room.
+    """
+    room_type: Optional[str] = Field(default=None, examples=["private"])
+    messages_deletable: Optional[bool] = Field(default=None, examples=[True])
+    description: Optional[str] = Field(
+        default=None,
+        examples=["Room for something."]
+    )
+
+    # TODO add validations and sanitizations for both all fields.
+    @model_validator(mode="before")
+    @classmethod
+    def validate_fields(cls, values: dict) -> dict:
+        """
+        Validate room_type and messages_deletable fields.
+        """
+        messages_deletable = values.get("messages_deletable")
+        room_type = values.get("room_type")
+        description = values.get("description")
+
+        if description:
+            description = clean(description)
+
+
+        if messages_deletable:
+            if not isinstance(messages_deletable, bool):
+                raise ValueError("messages_deletable must be of boolean type.")
+        if room_type:
+            r_types = ["private", "public"]
+            if room_type not in r_types:
+                raise ValueError(f"room_type must be either of {r_types}")
+        if not messages_deletable and not room_type:
+            raise ValueError("both messages_deletable and room_type cannot be absent.")
+
+        return values
+
+class UpdateRoomResponse(BaseModel):
+    """
+    Class for room update response.
+    """
+    status_code: int = Field(default=201, examples=[201])
+    message: str = Field(
+        default="Room Updated Successfully",
+        examples=["Room Updated Successfully"]
+    )
+    data: RoomBase
+
 __all__ = [
     "RoomCreateSchema", "RoomSchemaOut", "RoomAndRoomMembersBase", "RoomBase",
     "RoomMembersBase", "CreateDirectMessageSchema", "RoomBelongsToResponse",
-    "AllDirectRoomsResponse",
+    "AllDirectRoomsResponse", "UpdateRoomSchema", "UpdateRoomResponse",
 ]
