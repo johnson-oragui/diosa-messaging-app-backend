@@ -3,6 +3,7 @@ Database session module
 """
 import asyncio
 from typing import AsyncIterator
+from contextlib import contextmanager
 from sqlalchemy.ext.asyncio import (
     async_scoped_session,       # For creating scoped sessions in async environments
     async_sessionmaker,         # For creating session factories
@@ -16,7 +17,9 @@ from sqlalchemy.orm import (
     Mapped,
     mapped_column,
     declared_attr,
-    declarative_mixin
+    declarative_mixin,
+    scoped_session,
+    sessionmaker,
 )
 from sqlalchemy import (
     MetaData,                   # To define metadata and naming conventions
@@ -24,7 +27,8 @@ from sqlalchemy import (
     Table,
     DateTime,
     String,
-    func
+    func,
+    create_engine,
 )
 from sqlalchemy.exc import SQLAlchemyError
 from uuid import uuid4
@@ -41,7 +45,7 @@ naming_convention = {
 }
 
 if settings.test:
-    DATABASE_URL = settings.db_url
+    DATABASE_URL = settings.db_url_test
 else:
     DATABASE_URL = settings.db_url_async
 
@@ -52,10 +56,9 @@ class Base(AsyncAttrs, DeclarativeBase):
         )
     else:
         metadata = MetaData(
-            schema=settings.db_schema,
             naming_convention=naming_convention
         )
-        
+
 
 # Creates the async engine, use pool_size and max_overflow for control over connections
 async_engine: AsyncEngine = create_async_engine(
@@ -126,6 +129,56 @@ async def get_session() -> AsyncIterator[AsyncSession]:
         finally:
             await AsyncScoppedSession.remove()
             await session.close()
+
+# run with postgres sync multi connection pool
+database_url = settings.celery_result_backend.split("+")[1]
+sync_engine = create_engine(
+    url=database_url,
+    echo=False,
+    future=True,
+    pool_size=10,
+    max_overflow=20,
+    pool_timeout=60,
+    pool_recycle=18000
+)
+
+# run with sqlite sync singleton connection pool
+if settings.mode == "DEV":
+    database_url = settings.celery_result_backend_test.split("+", maxsplit=1)[1]
+    sync_engine = create_engine(
+        url=database_url,
+        echo=False,
+        future=True,
+    )
+
+# Create a session factory, ensuring sessions are sync for celery backend
+sync_session_factory = sessionmaker(
+    bind=sync_engine,
+    autoflush=False,
+    expire_on_commit=False
+)
+
+# Create scoped session tied for celery backend
+SyncScoppedSession = scoped_session(
+    session_factory=sync_session_factory,
+)
+
+@contextmanager
+def get_sync_session():
+    """
+    Dependency to provide a database session for each request.
+    Handles session lifecycle including commit and rollback.
+    """
+    session = SyncScoppedSession()
+    try:
+        yield session
+        session.commit()
+    except SQLAlchemyError:
+        session.rollback()
+        raise
+    finally:
+        SyncScoppedSession.remove()
+        session.close()
 
 @declarative_mixin
 class ModelMixin:
