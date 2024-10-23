@@ -10,6 +10,7 @@ from app.v1.auth.dependencies import (
 from app.database.session import get_session
 from app.v1.rooms.services import (
     room_service,
+    room_member_service,
 )
 from app.v1.chats.services import message_service
 from app.v1.rooms.schemas import *
@@ -21,10 +22,14 @@ from app.v1.chats.schemas import (
     AllMessagesResponse,
     MessageDeleteSchema
 )
+from app.utils.celery_setup.tasks import (
+    update_roommembers_room_data_in_batches,
+    update_room_messages_room_data_in_batches,
+)
 
 logger = create_logger("Rooms Route")
 
-rooms = APIRouter(prefix="/rooms")
+rooms = APIRouter(prefix="/rooms", tags=["ROOMS"])
 
 
 @rooms.post(
@@ -169,9 +174,76 @@ async def delete_room_messages(room_id: str, request: Request,
         )
     return
 
+@rooms.put("/{room_id}", response_model=UpdateRoomResponse, status_code=status.HTTP_201_CREATED)
+async def update_room_fields(room_id: str, schema: UpdateRoomSchema,
+                           request: Request,
+                            token: Annotated[str, Depends(check_for_access_token)],
+                            session: Annotated[AsyncSession, Depends(get_session)],):
+    """
+    Updates room(s) field.
+    """
+    user = await get_current_active_user(
+        access_token=token,
+        request=request,
+        session=session,
+    )
+    user_is_admin = await room_member_service.fetch(
+        {
+            "user_id": user.id,
+            "is_admin": True,
+            "room_id": room_id,
+        },
+        session
+    )
+    if not user_is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User is not an admin of the room."
+        )
+    update_fields = {}
+    if schema.room_type:
+        # Defer the updating of related data (messages, room members)
+        task_id1 = update_roommembers_room_data_in_batches.delay(
+            room_id,
+            schema.room_type
+        )
+        task_id2 = update_room_messages_room_data_in_batches.delay(
+            room_id,
+            schema.room_type
+        )
+        logger.info(f"task_id1: {task_id1}, task_id2: {task_id2}")
+        update_fields.update({"room_type": schema.room_type})
+
+    if schema.messages_deletable is not None:
+        update_fields.update({"messages_deletable": schema.messages_deletable})
+    if schema.description:
+        update_fields.update({"description": schema.description})
+    logger.info(f"update_fields: {update_fields}")
+
+    # Perform the update in the room service
+    updated_room = await room_service.update(
+        [
+            {
+                "id": room_id,
+                "is_deleted": False,
+            },
+            update_fields
+        ],
+        session
+    )
+
+    logger.info(f"updated_room: {updated_room}")
+
+    return UpdateRoomResponse(
+        data=RoomBase.model_validate(updated_room, from_attributes=True)
+    )
+
+
 # TODO: delete private/public room
-# TODO: delete direct-message room
-# TODO: update private/public room
+
+# TODO: update private/public room messages
+# TODO: update direct-message room messages
+
 
 @rooms.post(
     "/create/dm", response_model=RoomSchemaOut, status_code=status.HTTP_201_CREATED
