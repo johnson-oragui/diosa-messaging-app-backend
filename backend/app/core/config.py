@@ -6,7 +6,10 @@ class Settings(BaseSettings):
     """
     Class to access env variables
     """
-    db_url: str
+    mode: str
+
+    db_url_sync: str
+    db_url_test: str
     db_url_async: str
     db_username: str
     db_password: str
@@ -39,6 +42,11 @@ class Settings(BaseSettings):
     facebook_client_secret: str
 
     test: str
+
+    celery_broker_url: str
+    celery_broker_url_test: str
+    celery_result_backend: str
+    celery_result_backend_test: str
 
     model_config: SettingsConfigDict = {
         "env_file": ".env",
