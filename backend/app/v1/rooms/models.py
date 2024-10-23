@@ -17,7 +17,7 @@ from app.base.enums import (
     invitation_status_enum
 )
 
-if TYPE_CHECKING:   
+if TYPE_CHECKING:
     from app.v1.chats import Message
     from app.v1.users import User
 
@@ -35,6 +35,7 @@ class Room(ModelMixin, Base):
     description: Mapped[str] = mapped_column(nullable=True)
     messages_deletable: Mapped[bool] = mapped_column(default=True)
     idempotency_key: Mapped[str] = mapped_column(nullable=True)
+    is_deleted: Mapped[bool] = mapped_column(default=False, server_default="FALSE")
 
     owner: Mapped["User"] = relationship(
         "User", back_populates="rooms_created", uselist=False
@@ -112,7 +113,7 @@ class RoomInvitation(ModelMixin, Base):
     invitee: Mapped["User"] = relationship(
         "User", foreign_keys=[invitee_id], back_populates="received_invitations", uselist=False
     )
-    
+
     __table_args__ = (
         UniqueConstraint(
             room_id, invitee_id, name="uq_room_invitation_room_id_invitee_id"
