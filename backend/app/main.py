@@ -9,9 +9,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.middleware import (
     route_logger_middleware,
-    set_header_middleware,
     set_x_frame_options_header,
-    UserAgentMiddleware
+    UserAgentMiddleware,
+    NoSniffMiddleware
 )
 from app.core.error_handlers import (
     exception,
@@ -24,6 +24,7 @@ from app.database.session import async_engine
 from app.utils.task_logger import create_logger
 from app import api_version_one
 from app.core.config import settings
+from app.database.celery_database import setup_celery_results_db
 
 logger = create_logger("Main App")
 
@@ -35,6 +36,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info(
         msg="Starting Application"
     )
+    setup_celery_results_db()
     try:
         yield
     finally:
@@ -44,8 +46,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         )
 
 
-app = FastAPI(lifespan=lifespan, debug=True)
-app.include_router(api_version_one)
+app = FastAPI(
+    lifespan=lifespan,
+    debug=True,
+    title="Chat App.",
+    description="A chat app API.",
+    version="1.0.0",
+)
 
 origins = [
     "http://localhost:3000",
@@ -65,9 +72,11 @@ app.add_middleware(
 app.add_middleware(SessionMiddleware, secret_key=settings.secrets)
 
 app.middleware("http")(route_logger_middleware)
-app.middleware("http")(set_header_middleware)
 app.middleware("http")(set_x_frame_options_header)
 app.add_middleware(UserAgentMiddleware)
+app.add_middleware(NoSniffMiddleware)
+
+app.include_router(api_version_one)
 
 @app.get("/", tags=['HOME'])
 async def read_root() -> dict:
