@@ -1,5 +1,12 @@
 from typing import Annotated
-from fastapi import APIRouter, Depends, Request, status, HTTPException
+from fastapi import (
+    APIRouter,
+    Depends,
+    Request,
+    status,
+    HTTPException,
+    Query,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import uuid4
 
@@ -470,7 +477,6 @@ async def reject_invitation_to_room(room_id: str, request: Request,
             detail=f"{exc.args[0]}"
         )
 
-# TODO: reject room_invitations
 @rooms.post("/{room_id}/ignore-invite", status_code=status.HTTP_200_OK,
             response_model=AcceptInvitationResponse)
 async def ignore_invitation_to_room(room_id: str, request: Request,
@@ -505,10 +511,40 @@ async def ignore_invitation_to_room(room_id: str, request: Request,
         )
 
 # TODO: cancel pending room invitations
-# TODO: get pending room invitations
-# TODO: get accepted room invitations
-# TODO: get  rejected room invitations
-# TODO: get  ignored room invitations
+
+@rooms.get("/invitations", status_code=status.HTTP_200_OK,
+            response_model=AllInvitationResponse)
+async def fetch_room_invitations(request: Request,
+                                 token: Annotated[str, Depends(check_for_access_token)],
+                                 session: Annotated[AsyncSession, Depends(get_session)],
+                                 status: str = Query(
+                                     default="pending",
+                                     max_length=9,
+                                     examples=["pending", "accepted", "declined", "ignored"]
+                                    )):
+    """
+    Retrieves different room invitation status for a user.
+    """
+    user = await get_current_active_user(
+        access_token=token,
+        request=request,
+        session=session,
+    )
+    try:
+        all_invitations = await room_invitation_service.fetch_invitations(
+            status=status,
+            user_id=user.id,
+            session=session
+        )
+
+        return AllInvitationResponse(
+            data=all_invitations
+        )
+    except InvitationNotFoundError as exc:
+        raise HTTPException(
+            status_code=403,
+            detail=f"{exc.args[0]}"
+        )
 
 
 @rooms.post(
