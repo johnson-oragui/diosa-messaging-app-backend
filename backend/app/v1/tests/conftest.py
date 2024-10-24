@@ -21,6 +21,9 @@ from app.v1.auth.dependencies import (
     check_for_access_token,
     generate_jwt_token
 )
+from app.utils.celery_setup.setup import make_celery
+from app.core.config import settings
+from app.database.celery_database import setup_celery_results_db
 
 user_id = str(uuid.uuid4())
 
@@ -65,6 +68,18 @@ async def test_get_session():
     session = TestSessionLocal()
     yield session
     await session.close()
+
+@pytest.fixture(scope="session")
+def celery_app():
+    """
+    Configures celery
+    """
+    setup_celery_results_db()
+    celery_app = make_celery(
+        broker_url=settings.celery_broker_url_test,
+        result_backend=settings.celery_result_backend_test,
+    )
+    return celery_app
 
 @pytest.fixture(scope="function")
 async def mock_check_for_access_token():
@@ -339,6 +354,7 @@ def mock_private_room_one_dict():
         "room_type": "private",
         "description": "public room",
         "creator_id": "",
+        "is_deleted": False,
     }
     yield room
 
@@ -352,6 +368,7 @@ def mock_private_room_two_dict():
         "room_type": "private",
         "description": "public room",
         "creator_id": "",
+        "is_deleted": False,
     }
     yield room
 
