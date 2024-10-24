@@ -49,21 +49,28 @@ class MessageService(Service):
                                         a direct_message
         """
         # check if admin set room messages as deletable
-        room_message_deletable = await room_service.fetch(
+        room = await room_service.fetch(
             {
                 "id": room_id,
-                "messages_deletable": True,
+                "is_deleted": False,
             },
             session
         )
-        if room_message_deletable:
+        if not room:
+            raise CannotDeleteMessageError("Room does not exists or has been deleted.")
+        if room.messages_deletable is True:
             if message_id:
                 # delete message if user is the creator of the message or a direct_message
-                deleted_message = await self.delete(
-                    {
-                        "user_id": user_id,
-                        "id": message_id
-                    },
+                deleted_message = await self.update(
+                    [
+                        {
+                            "user_id": user_id,
+                            "id": message_id
+                        },
+                        {
+                            "is_deleted": True,
+                        }
+                    ],
                     session
                 )
                 if deleted_message:
@@ -74,11 +81,16 @@ class MessageService(Service):
             elif message_ids:
                 for message_id in message_ids:
                     # delete message if user is the creator of the message or a direct_message
-                    deleted_message = await self.delete(
-                        {
-                            "user_id": user_id,
-                            "id": message_id
-                        },
+                    deleted_message = await self.update(
+                        [
+                            {
+                                "user_id": user_id,
+                                "id": message_id
+                            },
+                            {
+                                "is_deleted": True,
+                            }
+                        ],
                         session
                     )
                     if deleted_message:
@@ -96,11 +108,16 @@ class MessageService(Service):
         logger.info(msg=f"user_is_admin: {user_is_admin}")
         if user_is_admin:
             if message_id:
-                deleted_message = await message_service.delete(
-                    {
-                        "id": message_id
-                    },
-                    session,
+                deleted_message = await self.update(
+                    [
+                        {
+                            "id": message_id
+                        },
+                        {
+                            "is_deleted": True,
+                        }
+                    ],
+                    session
                 )
                 if deleted_message:
                     logger.info(msg=f"User admin {user_id} deleted the message successfully")
@@ -109,11 +126,16 @@ class MessageService(Service):
                     raise CannotDeleteMessageError("Message not found")
             elif message_ids:
                 for message_id in message_ids:
-                    deleted_message = await message_service.delete(
-                        {
-                            "id": message_id
-                        },
-                        session,
+                    deleted_message = await self.update(
+                        [
+                            {
+                                "id": message_id
+                            },
+                            {
+                                "is_deleted": True,
+                            }
+                        ],
+                        session
                     )
                     if deleted_message:
                         logger.info(msg=f"User member {user_id} deleted the message successfully")
@@ -158,7 +180,9 @@ class MessageService(Service):
         ).join(
             profile, profile.user_id == user.id
         ).where(
-            message.room_id == room_id
+            message.room_id == room_id,
+            message.is_deleted != True,
+            room.is_deleted != True
         ).order_by(
             message.created_at
         ).limit(limit)
