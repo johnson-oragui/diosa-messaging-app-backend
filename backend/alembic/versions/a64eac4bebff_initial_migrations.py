@@ -114,7 +114,7 @@ def upgrade() -> None:
     sa.Column('room_id', sa.String(length=60), nullable=False),
     sa.Column('inviter_id', sa.String(length=60), nullable=False),
     sa.Column('invitee_id', sa.String(length=60), nullable=False),
-    sa.Column('invitation_status', postgresql.ENUM('pending', 'accepted', 'declined', name='invitation_status_enum'), server_default='pending', nullable=False),
+    sa.Column('invitation_status', postgresql.ENUM('pending', 'accepted', 'declined', 'ignored', name='invitation_status_enum'), server_default='pending', nullable=False),
     sa.Column('room_type', postgresql.ENUM('public', 'private', 'direct_message', name='room_type_enum'), nullable=False),
     sa.Column('id', sa.String(length=60), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
