@@ -230,7 +230,7 @@ class TestRoommemberService:
             mock_public_room_one_dict,
             test_get_session
         )
-        
+
         new_room_member = await room_member_service.create(
             {"user_id": new_user.id, "room_id": new_room.id, "room_type": new_room.room_type},
             test_get_session
@@ -262,7 +262,12 @@ class TestRoommemberService:
         johnson = await user_service.create(mock_johnson_user_dict, test_get_session)
 
         new_room = await room_service.create(
-            {"creator_id": jayson.id, "room_type": "public", "room_name": "new-pub"},
+            {
+                "creator_id": jayson.id,
+                "room_type": "public",
+                "room_name": "new-pub",
+                "is_deleted": False,
+            },
             test_get_session
         )
 
@@ -316,7 +321,12 @@ class TestRoommemberService:
         johnson = await user_service.create(mock_johnson_user_dict, test_get_session)
 
         new_room = await room_service.create(
-            {"creator_id": jayson.id, "room_type": "private", "room_name": "new-pub"},
+            {
+                "creator_id": jayson.id,
+                "room_type": "private",
+                "room_name": "new-pub",
+                "is_deleted": False,
+            },
             test_get_session
         )
 
@@ -373,7 +383,7 @@ class TestRoommemberService:
             mock_public_room_one_dict,
             test_get_session
         )
-        
+
         new_room_member = await room_member_service.create(
             {"user_id": new_user.id, "room_id": new_room.id, "room_type": new_room.room_type},
             test_get_session
@@ -432,7 +442,7 @@ class TestRoommemberService:
             mock_public_room_one_dict,
             test_get_session
         )
-        
+
         new_room_member = await room_member_service.create(
             {"user_id": new_user.id, "room_id": new_room.id, "room_type": new_room.room_type},
             test_get_session
@@ -460,4 +470,3 @@ class TestRoommemberService:
 
         assert updated_room_member.is_admin == is_user_admin_2  # True
         assert new_room_member == updated_room_member
-
