@@ -25,6 +25,7 @@ from app.core.custom_exceptions import (
 )
 from app.utils.task_logger import create_logger
 from app.v1.rooms.schemas import DMBase
+from app.v1.rooms.schemas import InvitationBase
 
 logger = create_logger("Room Service")
 
@@ -683,6 +684,39 @@ class RoomInvitationService(Service):
         invitation.invitation_status = "ignored"
         await session.commit()
         return invitation
+
+    async def fetch_invitations(self, status: str, user_id: str,
+                                session: AsyncSession) -> List[Optional[InvitationBase]]:
+        """
+        Retrieves all invitation for a user.
+
+        Args:
+            status(str): The status of the room invitation.
+            user_id(str): the id of the room invitation the user is rejecting.
+            session(object): database session object.
+        Returns:
+            roomInvitations if invitations exists.
+        Raises:
+            InvitationNotFoundError if no invitation found.
+        """
+        if status == "rejected":
+            status = "declined"
+        valid_status = ["pending", "accepted", "declined", "ignored", "rejected"]
+        if status not in valid_status:
+            raise InvitationNotFoundError(f"status must be either of {valid_status}")
+        invitations = await self.fetch_all(
+            {
+                "invitee_id": user_id,
+                "invitation_status": status
+            },
+            session=session
+        )
+        if not invitations:
+            return []
+        all_invitations = [InvitationBase.model_validate(invite, from_attributes=True) for invite in invitations]
+
+
+        return all_invitations
 
 room_service = RoomService()
 
