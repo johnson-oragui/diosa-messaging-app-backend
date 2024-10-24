@@ -32,6 +32,12 @@ class CannotDeleteMessageError(RoomNotFoundError):
     """
     pass
 
+class CannotUpdateMessageError(RoomNotFoundError):
+    """
+    Custom error for messages that cannot be updated.
+    """
+    pass
+
 class UserDoesNotExistError(RoomNotFoundError):
     """
     Custom error for user not found.
