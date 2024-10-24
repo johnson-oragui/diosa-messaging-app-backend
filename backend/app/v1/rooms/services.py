@@ -589,45 +589,100 @@ class RoomInvitationService(Service):
 
     async def rejects_room_invitations(self, invitee_id: str,
                                       room_id: str,
-                                      session: AsyncSession) -> Tuple[Optional[RoomInvitation], Optional[RoomMember]]:
+                                      invitation_id: str,
+                                      session: AsyncSession) -> Optional[RoomInvitation]:
         """
         Rejects an invitation.
 
         Args:
             invitee_id(str): The id of the user accepting the room invitation.
             room_id(str): the id of the room the user is joining.
+            invitation_id(str): the id of the room invitation the user is rejecting.
             session(object): database session object.
         Returns:
-            tuple(roomInvitation, RoomMember) if the invitation exists and accepted.
+            roomInvitation if the invitation exists and rejected.
         Raises:
             InvitationNotFoundError if the invitation does not exist.
         """
+        # check the room
+        room_exists = await room_service.fetch(
+            {
+                "id": room_id,
+                "is_deleted": False,
+            },
+            session=session
+        )
+        if not room_exists:
+            raise RoomNotFoundError("Room does not exist or has been deleted.")
         # fetch the invitation
         invitation = await self.fetch(
             {
                 "invitee_id": invitee_id,
-                "room_id": room_id
+                "room_id": room_id,
+                "id": invitation_id,
             },
             session
         )
         if not invitation:
-            raise InvitationNotFoundError(f"Invitation to room {room_id} to user {invitee_id} not found")
+            raise InvitationNotFoundError("Invitation not found or expired.")
+        if invitation.invitation_status == "accepted":
+            raise InvitationNotFoundError("Invitation has already been accepted.")
+        if invitation.invitation_status == "declined":
+            raise InvitationNotFoundError("Invitation has already been rejected.")
 
-        # reject the invitation.
-        new_member = await self.update(
-            [
-                {
-                    "invitee_id": invitee_id,
-                    "room_id": room_id,
-                    "room_type": invitation.room_type
-                },
-                {
-                    "invitation_status": "declined"
-                }
-            ],
+        # Update the invitation status to accepted
+        invitation.invitation_status = "declined"
+        await session.commit()
+        return invitation
+
+
+    async def ignores_room_invitations(self, invitee_id: str,
+                                      room_id: str,
+                                      invitation_id: str,
+                                      session: AsyncSession) -> Optional[RoomInvitation]:
+        """
+        Ignores an invitation.
+
+        Args:
+            invitee_id(str): The id of the user accepting the room invitation.
+            room_id(str): the id of the room the user is joining.
+            invitation_id(str): the id of the room invitation the user is rejecting.
+            session(object): database session object.
+        Returns:
+            roomInvitation if the invitation exists and ignored.
+        Raises:
+            InvitationNotFoundError if the invitation does not exist.
+        """
+        # check the room
+        room_exists = await room_service.fetch(
+            {
+                "id": room_id,
+                "is_deleted": False,
+            },
+            session=session
+        )
+        if not room_exists:
+            raise RoomNotFoundError("Room does not exist or has been deleted.")
+        # fetch the invitation
+        invitation = await self.fetch(
+            {
+                "invitee_id": invitee_id,
+                "room_id": room_id,
+                "id": invitation_id,
+            },
             session
         )
-        return invitation, new_member
+        if not invitation:
+            raise InvitationNotFoundError("Invitation not found or expired.")
+        if invitation.invitation_status == "accepted":
+            raise InvitationNotFoundError("Invitation has already been accepted.")
+        if invitation.invitation_status == "declined":
+            raise InvitationNotFoundError("Invitation has already been rejected.")
+
+        # Update the invitation status to ignored
+        invitation.invitation_status = "ignored"
+        await session.commit()
+        return invitation
 
 room_service = RoomService()
 
