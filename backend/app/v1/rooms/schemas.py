@@ -229,8 +229,83 @@ class UpdateRoomResponse(BaseModel):
     )
     data: RoomBase
 
+class RoomInvitationInput(BaseModel):
+    """
+    Class for room invitation.
+    """
+    invitee_id: Annotated[
+        str,
+        StringConstraints(
+            strip_whitespace=True,
+            min_length=35
+        )
+    ] = Field(
+        examples=["da9158f9-d19e-4931-b414-5b806a2f4954"]
+    )
+
+class InvitationBase(BaseModel):
+    """
+    Class for invitation base.
+    """
+    room_id: str = Field(
+        examples=["da9158f9-d19e-4931-b414-5b806a2f4954"]
+    )
+    inviter_id: str = Field(
+        examples=["111158f9-d19e-4931-b414-5b806a2f4954"]
+    )
+    invitee_id: str = Field(
+        examples=["222158f9-d19e-4931-b414-5b806a2f4954"]
+    )
+    invitation_status: str = Field(
+        examples=["pending"]
+    )
+    room_type: str = Field(
+        examples=["private"]
+    )
+    created_at: datetime = Field(
+        examples=[datetime.now(timezone.utc)]
+    )
+
+    model_config = ConfigDict(from_attributes=True)
+
+class RoomInvitationResponse(RoomBelongsToResponse):
+    """
+    Class for room-invitation response
+    """
+    message: str = Field(
+        default="Room invitation sent successfully",
+        examples=["Room invitation sent successfully"]
+    )
+    data: InvitationBase
+
+class AcceptInvitationInput(BaseModel):
+    """
+    Class for room invitation.
+    """
+    invitation_id: Annotated[
+        str,
+        StringConstraints(
+            strip_whitespace=True,
+            min_length=35
+        )
+    ] = Field(
+        examples=["da9158f9-d19e-4931-b414-5b806a2f4954"]
+    )
+
+class AcceptInvitationResponse(RoomInvitationResponse):
+    """
+    Class for room-invitation-accept response
+    """
+    message: str = Field(
+        default="Room invitation accepted successfully",
+        examples=["Room invitation accepted successfully"]
+    )
+    data: InvitationBase
+
 __all__ = [
     "RoomCreateSchema", "RoomSchemaOut", "RoomAndRoomMembersBase", "RoomBase",
     "RoomMembersBase", "CreateDirectMessageSchema", "RoomBelongsToResponse",
     "AllDirectRoomsResponse", "UpdateRoomSchema", "UpdateRoomResponse",
+    "RoomInvitationInput", "InvitationBase", "RoomInvitationResponse",
+    "AcceptInvitationInput", "AcceptInvitationResponse",
 ]
