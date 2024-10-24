@@ -323,7 +323,7 @@ class TestRoomService:
         johnson = await user_service.create(mock_johnson_user_dict, test_get_session)
         jayson = await user_service.create(mock_jayson_user_dict, test_get_session)
 
-        await room_service.create_direct_message_room(
+        _, _, _ = await room_service.create_direct_message_room(
             user_id_1=johnson.id,
             user_id_2=jayson.id,
             session=test_get_session,
