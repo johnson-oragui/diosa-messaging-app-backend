@@ -44,7 +44,7 @@ class UserAgentMiddleware(BaseHTTPMiddleware):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 content={
                     "status_code": status.HTTP_400_BAD_REQUEST,
-                    "message": "Missing user-agent",
+                    "message": "Bad Request!",
                     "data": {}
                 }
             )
@@ -52,20 +52,11 @@ class UserAgentMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         return response
 
-async def set_header_middleware(request: Request, call_next):
-    """
-    Sets the Content-Type header of the response to specify that the content is JSON,
-    using UTF-8 encoding, and instructs the browser not to sniff the content type (no-sniff).
-
-    Key Header:
-        Content-Type: Defines the media type of the response.
-        no-sniff: Protects against certain types of attacks by ensuring the browser respects
-                    the declared content type and doesn't attempt to guess it.
-    """
-    response = await call_next(request)
-
-    response.headers['Content-Type'] = "application/json;charset=utf-8; no-sniff"
-    return response
+class NoSniffMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        return response
 
 async def set_hsts_header(request: Request, call_next):
     """
@@ -87,7 +78,7 @@ async def set_hsts_header(request: Request, call_next):
 
 async def set_csp_header(request: Request, call_next):
     """
-    Sets the Content-Security-Policy (CSP) header, which restricts which resources the browser can 
+    Sets the Content-Security-Policy (CSP) header, which restricts which resources the browser can
     load (scripts, styles, images, etc.), protecting against attacks like
     Cross-Site Scripting (XSS).
 
