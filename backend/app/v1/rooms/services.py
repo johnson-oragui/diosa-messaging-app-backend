@@ -20,7 +20,8 @@ from app.core.custom_exceptions import (
     UserNotAMemberError,
     UserNotAnAdminError,
     InvitationNotFoundError,
-    UserDoesNotExistError
+    UserDoesNotExistError,
+    UserAlreadyAMember
 )
 from app.utils.task_logger import create_logger
 from app.v1.rooms.schemas import DMBase
@@ -480,43 +481,52 @@ class RoomInvitationService(Service):
         Raises:
             UserNotAnAdminError if it not a public room, and the inviter user is not an admin.
         """
-        room = await room_service.fetch(
+        room_exists = await room_service.fetch(
             {
                 "id": room_id,
                 "is_deleted": False,
             },
             session
         )
-        if room.room_type == "public":
-            # create invitations
-            invitations = await self.create(
-                {
-                    "room_id": room_id,
-                    "inviter_id": inviter_id,
-                    "invitee_id": invitee_id,
-                    "room_type": room.room_type
-                },
-                session
-            )
-            return invitations
-        # Check if inviter is an admin or room owner
-        inviter_is_admin = await room_member_service.fetch(
+        if not room_exists:
+            raise RoomNotFoundError("Room does not exist or has been deleted.")
+        # Fetch the current user's membership status in the room
+        room_member = await room_member_service.fetch(
             {
-                "user_id": inviter_id,
-                "is_admin": True,
                 "room_id": room_id,
+                "user_id": inviter_id,
+                "is_admin": True
             },
-            session
+            session=session
         )
-        if not inviter_is_admin:
-            raise UserNotAnAdminError(f"User {inviter_id} is not an admin in room {room_id}")
+        if not room_member:
+            raise UserNotAMemberError("You are not a member of this room")
+
+        # Determine if the user is allowed to invite in this room
+        if room_exists.room_type == 'private' and not room_member.is_admin:
+            raise UserNotAnAdminError("Only admins can invite to private rooms")
+        # check if the type of room
+        if room_exists.room_type == "direct-message":
+            raise RoomNotFoundError("Cannot invite a user to a direct-message room.")
+        # check if the invitee user is already a member
+        existing_member = await room_member_service.fetch(
+            {
+                "room_id": room_id,
+                "user_id": invitee_id,
+                "is_admin": True
+            },
+            session=session
+        )
+        if existing_member:
+            raise UserAlreadyAMember("User is already a member of this room.")
+
         # create invitations
         invitations = await self.create(
             {
                 "room_id": room_id,
                 "inviter_id": inviter_id,
                 "invitee_id": invitee_id,
-                "room_type": room.room_type
+                "room_type": room_exists.room_type
             },
             session
         )
@@ -524,29 +534,44 @@ class RoomInvitationService(Service):
 
     async def accept_room_invitations(self, invitee_id: str,
                                       room_id: str,
-                                      session: AsyncSession) -> Optional[Tuple[RoomInvitation, RoomMember]]:
+                                      invitation_id: str,
+                                      session: AsyncSession) -> Optional[Tuple[RoomInvitation, Optional[RoomMember]]]:
         """
         Accepts an invitation.
 
         Args:
             invitee_id(str): The id of the user accepting the room invitation.
             room_id(str): the id of the room the user is joining.
+            invitation_id(str): the id of the invitation the user is accepting.
             session(object): database session object.
         Returns:
             tuple(roomInvitation, RoomMember) if the invitation exists and accepted.
         Raises:
             InvitationNotFoundError if the invitation does not exist.
         """
+        # check the room
+        room_exists = await room_service.fetch(
+            {
+                "id": room_id,
+                "is_deleted": False,
+            },
+            session=session
+        )
+        if not room_exists:
+            raise RoomNotFoundError("Room does not exist or has been deleted.")
         # fetch the invitation
         invitation = await self.fetch(
             {
                 "invitee_id": invitee_id,
-                "room_id": room_id
+                "room_id": room_id,
+                "id": invitation_id,
             },
             session
         )
         if not invitation:
-            raise InvitationNotFoundError(f"Invitation to room {room_id} to user {invitee_id} not found")
+            raise InvitationNotFoundError("Invitation not found")
+        if invitation.invitation_status == "accepted":
+            return invitation, None
 
         # Add user to the room as a member
         new_member = await room_member_service.create(
