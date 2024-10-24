@@ -1,7 +1,7 @@
 """initial migrations
 
 Revision ID: a64eac4bebff
-Revises: 
+Revises:
 Create Date: 2024-10-23 16:02:19.099839
 
 """
@@ -98,6 +98,7 @@ def upgrade() -> None:
     sa.Column('user_id', sa.String(length=60), nullable=False),
     sa.Column('room_id', sa.String(length=60), nullable=False),
     sa.Column('content', sa.String(length=1000), nullable=False),
+    sa.Column('is_deleted', sa.Boolean(), server_default='FALSE', nullable=False),
     sa.Column('chat_type', sa.Enum('public', 'private', 'direct_message', name='chat_type_enum'), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
