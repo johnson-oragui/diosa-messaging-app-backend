@@ -16,7 +16,10 @@ from app.v1.chats.schemas import (
     BaseMessage,
 )
 from app.utils.task_logger import create_logger
-from app.core.custom_exceptions import CannotDeleteMessageError
+from app.core.custom_exceptions import (
+    CannotDeleteMessageError,
+    CannotUpdateMessageError,
+)
 
 
 logger = create_logger("Message Service")
@@ -205,5 +208,53 @@ class MessageService(Service):
 
         return room_messages
 
+    async def update_message(self, room_id: str,
+                             user_id: str,
+                             session: AsyncSession,
+                             message: str,
+                             message_id,
+                             ) -> Optional[Message]:
+        """
+        Updates a message if user is the creator.
+
+        Args:
+            room_id(str): id of the private/public/direct_message room.
+            user_id(str): id of the user updating the message.
+            message(str): message to be updated.
+            message_id(str): id of the message to be updated.
+            session(object): database session object.
+        Returns:
+            The updated message.
+        Raises:
+            CannotUpdateMessageError: if the user is not admin or message not found, or message not
+                                        a direct_message
+        """
+        # check if admin set room messages as deletable
+        room = await room_service.fetch(
+            {
+                "id": room_id,
+                "is_deleted": False,
+            },
+            session
+        )
+        if not room:
+            raise CannotUpdateMessageError("Room does not exists or has been deleted.")
+        # update message if user is the creator of the message or a direct_message
+        updated_message = await self.update(
+            [
+                {
+                    "user_id": user_id,
+                    "id": message_id
+                },
+                {
+                    "content": message,
+                }
+            ],
+                session
+            )
+        if updated_message:
+            logger.info(msg=f"User member {user_id} updated the message successfully")
+            return updated_message
+        raise CannotUpdateMessageError("Message not found, or user is not the message owner")
 
 message_service = MessageService()
