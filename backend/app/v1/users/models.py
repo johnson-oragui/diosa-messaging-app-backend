@@ -13,6 +13,7 @@ from app.database.session import (
 from app.v1.chats import Message
 from app.v1.profile import Profile
 from app.v1.rooms import RoomInvitation
+from app.base.enums import user_online_status_enum, user_status_enum
 
 password_context = CryptContext(
     schemes=["bcrypt"],
@@ -31,14 +32,8 @@ class User(ModelMixin, Base):
     username: Mapped[str] = mapped_column(String(30), unique=True)
     idempotency_key: Mapped[str] = mapped_column(String(120), unique=True)
     email_verified: Mapped[bool] = mapped_column(default=False)
-    status: Mapped[str] = mapped_column(
-        Enum("active", "inactive", "deleted", "banned", name="user_status_enum", validate_strings=True, schema="chat"),
-        server_default="active"
-    )
-    online_status: Mapped[str] = mapped_column(
-        Enum("online", "away", "offline", name="user_online_status_enum", validate_strings=True, schema="chat"),
-        server_default="online"
-    )
+    status: Mapped[str] = mapped_column(user_status_enum, server_default="active")
+    online_status: Mapped[str] = mapped_column(user_online_status_enum, server_default="online")
 
     messages: Mapped[List["Message"]] = relationship(
         "Message", back_populates="user", cascade="all, delete-orphan"
