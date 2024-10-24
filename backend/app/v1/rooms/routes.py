@@ -18,10 +18,14 @@ from app.v1.rooms.schemas import *
 from app.core.custom_exceptions import (
     UserDoesNotExistError,
     CannotDeleteMessageError,
+    CannotUpdateMessageError,
 )
 from app.v1.chats.schemas import (
     AllMessagesResponse,
-    MessageDeleteSchema
+    MessageDeleteSchema,
+    UpdateMessageInput,
+    UpdateMessageResponse,
+    BaseMessage,
 )
 from app.utils.celery_setup.tasks import (
     update_roommembers_room_data_in_batches,
@@ -132,6 +136,46 @@ async def get_room_messages(room_id: str, request: Request,
     )
 
     return AllMessagesResponse(data=messages_list)
+
+# TODO: update private/public room messages
+@rooms.patch("/{room_id}/messages/{message_id}", status_code=status.HTTP_200_OK,
+             response_model=UpdateMessageResponse)
+async def update_room_messages(room_id: str, message_id: str, request: Request,
+                               schema: UpdateMessageInput,
+                               token: Annotated[str, Depends(check_for_access_token)],
+                               session: Annotated[AsyncSession, Depends(get_session)]):
+    """
+    Updates a room message.
+    """
+    user = await get_current_active_user(
+        access_token=token,
+        request=request,
+        session=session
+    )
+    try:
+        updated_message = await message_service.update_message(
+            room_id=room_id,
+            user_id=user.id,
+            session=session,
+            message=schema.message,
+            message_id=message_id
+        )
+    except CannotUpdateMessageError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"{exc.args[0]}"
+        )
+    return UpdateMessageResponse(
+        data=BaseMessage(
+            room_id=room_id,
+            content=schema.message,
+            created_at=updated_message.created_at,
+            username=user.username,
+            first_name=user.first_name,
+            last_name=user.last_name,
+            avatar_url=None
+        )
+    )
 
 @rooms.delete("/{room_id}/messages/{message_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_room_message(room_id: str, message_id: int,
@@ -312,8 +356,9 @@ async def delete_room(room_id: str, request: Request,
 
     return
 
-# TODO: update private/public room messages
-# TODO: update direct-message room messages
+
+# TODO: add room invitation
+# TODO: accept/reject room invitation
 
 
 @rooms.post(
