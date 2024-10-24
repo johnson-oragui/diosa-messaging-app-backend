@@ -28,7 +28,7 @@ chat_type_enum = postgresql.ENUM(
 )
 
 invitation_status_enum = postgresql.ENUM(
-        "pending","accepted", "declined",
+        "pending","accepted", "declined", "ignored",
         name="invitation_status_enum",
         validate_strings=True,
         create_type=False
