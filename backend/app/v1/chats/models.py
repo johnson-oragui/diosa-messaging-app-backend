@@ -30,6 +30,7 @@ class Message(ModelMixin, Base):
         String(60), ForeignKey("rooms.id", ondelete="CASCADE"), index=True
     )
     content: Mapped[str] = mapped_column(String(1000))
+    is_deleted: Mapped[bool] = mapped_column(default=False, server_default="FALSE")
     chat_type: Mapped[str] = mapped_column(chat_type_enum)
 
     user: Mapped["User"] = relationship(
