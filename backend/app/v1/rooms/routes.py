@@ -436,6 +436,73 @@ async def accept_invitation_to_room(room_id: str, request: Request,
             detail=f"{exc.args[0]}"
         )
 
+# TODO: reject room_invitations
+@rooms.post("/{room_id}/reject-invite", status_code=status.HTTP_200_OK,
+            response_model=AcceptInvitationResponse)
+async def reject_invitation_to_room(room_id: str, request: Request,
+                              schema: AcceptInvitationInput,
+                              token: Annotated[str, Depends(check_for_access_token)],
+                              session: Annotated[AsyncSession, Depends(get_session)]):
+    """
+    Allows a user to reject an invitation.
+    """
+    user = await get_current_active_user(
+        access_token=token,
+        request=request,
+        session=session,
+    )
+
+    try:
+        invitation = await room_invitation_service.rejects_room_invitations(
+            invitee_id=user.id,
+            invitation_id=schema.invitation_id,
+            room_id=room_id,
+            session=session
+        )
+        logger.info(msg=f"invitation: {invitation}")
+        return AcceptInvitationResponse(
+            message="Invitation rejected successfully.",
+            data=InvitationBase.model_validate(invitation, from_attributes=True)
+            )
+    except (InvitationNotFoundError, RoomNotFoundError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"{exc.args[0]}"
+        )
+
+# TODO: reject room_invitations
+@rooms.post("/{room_id}/ignore-invite", status_code=status.HTTP_200_OK,
+            response_model=AcceptInvitationResponse)
+async def ignore_invitation_to_room(room_id: str, request: Request,
+                              schema: AcceptInvitationInput,
+                              token: Annotated[str, Depends(check_for_access_token)],
+                              session: Annotated[AsyncSession, Depends(get_session)]):
+    """
+    Allows a user to ignore an invitation.
+    """
+    user = await get_current_active_user(
+        access_token=token,
+        request=request,
+        session=session,
+    )
+
+    try:
+        invitation = await room_invitation_service.ignores_room_invitations(
+            invitee_id=user.id,
+            invitation_id=schema.invitation_id,
+            room_id=room_id,
+            session=session
+        )
+        logger.info(msg=f"invitation: {invitation}")
+        return AcceptInvitationResponse(
+            message="Invitation rejected successfully.",
+            data=InvitationBase.model_validate(invitation, from_attributes=True)
+            )
+    except (InvitationNotFoundError, RoomNotFoundError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"{exc.args[0]}"
+        )
 
 # TODO: cancel pending room invitations
 # TODO: get pending room invitations
