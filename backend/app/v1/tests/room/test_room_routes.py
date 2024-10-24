@@ -1386,6 +1386,52 @@ class TestPrivatePublicRoomRoute:
         assert data["message"] == "Invitation rejected successfully."
         assert data["data"]["invitation_status"] == "ignored"
 
+    async def test_fetchall_room_invitations_route(self,
+                                                 client,
+                                                 mock_jayson_user_dict,
+                                                 mock_johnson_user_dict,
+                                                 mock_public_room_one_dict,
+                                                 mock_user_id,
+                                                 test_get_session,
+                                                 test_setup):
+        """
+        Test fetch all room invitations.
+        """
+        mock_jayson_user_dict["id"] = mock_user_id
+        jayson = await user_service.create(mock_jayson_user_dict, test_get_session)
+        johnson = await user_service.create(mock_johnson_user_dict, test_get_session)
+
+        new_room, _, _ = await room_service.create_a_public_or_private_room(
+            room_name=mock_public_room_one_dict["room_name"],
+            creator_id=johnson.id,
+            session=test_get_session,
+            room_type="public",
+            description="a public room"
+        )
+
+        room_invitation = await room_invitation_service.invite_user_to_room(
+            invitee_id=jayson.id,
+            inviter_id=johnson.id,
+            room_id=new_room.id,
+            session=test_get_session
+        )
+
+        assert room_invitation.invitation_status == "pending"
+
+        response = client.get(
+            url="/api/v1/rooms/invitations?status=pending",
+            headers={
+                "Authorization": "Bearer fake"
+            }
+        )
+
+        assert response.status_code == 200
+
+        data = response.json()
+
+        assert isinstance(data["data"], list)
+        assert data["data"][0]["invitation_status"] == "pending"
+
 
 class TestCreateDirectMessageRoomRoute:
     """
