@@ -604,13 +604,66 @@ class TestRoomInvitationService:
 
         assert johnson_not_room_member == None
 
-        rejected_invitation, new_room_member = await room_invitation_service.rejects_room_invitations(
+        rejected_invitation = await room_invitation_service.rejects_room_invitations(
             invitee_id=johnson.id,
             room_id=new_room.id,
+            invitation_id=room_invitation.id,
             session=test_get_session
         )
 
         assert rejected_invitation.invitation_status == "declined"
+
+        johnson_room_member = await room_member_service.fetch(
+            {"user_id": johnson.id},
+            test_get_session
+        )
+
+        assert johnson_room_member is None
+
+    async def test_ignore_room_invitations(self,
+                          mock_jayson_user_dict,
+                          mock_johnson_user_dict,
+                          mock_public_room_one_dict,
+                          test_get_session,
+                          test_setup):
+        """
+        Test reject room invitations.
+        """
+        jayson = await user_service.create(mock_jayson_user_dict, test_get_session)
+        johnson = await user_service.create(mock_johnson_user_dict, test_get_session)
+
+        new_room, _, _ = await room_service.create_a_public_or_private_room(
+            room_name=mock_public_room_one_dict["room_name"],
+            creator_id=jayson.id,
+            session=test_get_session,
+            room_type="public",
+            description="a public room"
+        )
+
+        room_invitation = await room_invitation_service.invite_user_to_room(
+            invitee_id=johnson.id,
+            inviter_id=jayson.id,
+            room_id=new_room.id,
+            session=test_get_session
+        )
+
+        assert room_invitation.invitation_status == "pending"
+
+        johnson_not_room_member = await room_member_service.fetch(
+            {"user_id": johnson.id},
+            test_get_session
+        )
+
+        assert johnson_not_room_member == None
+
+        rejected_invitation = await room_invitation_service.ignores_room_invitations(
+            invitee_id=johnson.id,
+            room_id=new_room.id,
+            invitation_id=room_invitation.id,
+            session=test_get_session
+        )
+
+        assert rejected_invitation.invitation_status == "ignored"
 
         johnson_room_member = await room_member_service.fetch(
             {"user_id": johnson.id},
