@@ -43,3 +43,9 @@ class UserDoesNotExistError(RoomNotFoundError):
     Custom error for user not found.
     """
     pass
+
+class UserAlreadyAMember(RoomNotFoundError):
+    """
+    Custom error for user already a member.
+    """
+    pass
