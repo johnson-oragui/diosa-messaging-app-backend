@@ -1,6 +1,7 @@
 from typing import Annotated
 from fastapi import APIRouter, Depends, Request, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from uuid import uuid4
 
 from app.utils.task_logger import create_logger
 from app.v1.auth.dependencies import (
@@ -111,6 +112,18 @@ async def get_room_messages(room_id: str, request: Request,
         request=request,
         session=session
     )
+    room = await room_service.fetch(
+        {
+            "id": room_id,
+            "is_deleted": False,
+        },
+        session=session
+    )
+    if not room:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Room does not exists or has been deleted."
+        )
 
     messages_list = await message_service.fetch_room_messages(
         room_id=room_id,
@@ -187,6 +200,18 @@ async def update_room_fields(room_id: str, schema: UpdateRoomSchema,
         request=request,
         session=session,
     )
+    room_is_deleted = await room_service.fetch(
+        {
+            "id": room_id,
+            "is_deleted": True,
+        },
+        session
+    )
+    if room_is_deleted:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Room does not exist or has been deleted."
+        )
     user_is_admin = await room_member_service.fetch(
         {
             "user_id": user.id,
@@ -240,6 +265,52 @@ async def update_room_fields(room_id: str, schema: UpdateRoomSchema,
 
 
 # TODO: delete private/public room
+@rooms.delete(
+    "/{room_id}", status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_room(room_id: str, request: Request,
+                      token: Annotated[str, Depends(check_for_access_token)],
+                      session: Annotated[AsyncSession, Depends(get_session)]):
+    """
+    Deletes a public/private room.
+    """
+    user = await get_current_active_user(
+        access_token=token,
+        request=request,
+        session=session,
+    )
+    direct_message_room = await room_service.fetch(
+        {
+            "id": room_id,
+            "room_type": "direct_message",
+        },
+        session=session
+    )
+    if direct_message_room:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot Delete Direct-Message Room."
+        )
+    room = await room_service.fetch(
+        {
+            "id": room_id,
+            "creator_id": user.id,
+            "is_deleted": False,
+        },
+        session=session
+    )
+    if not room:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Room does not exist or has already been deleted."
+        )
+
+    if room.idempotency_key:
+        room.idempotency_key = f"{str(uuid4())}_deleted"
+    room.is_deleted = True
+    await session.commit()
+
+    return
 
 # TODO: update private/public room messages
 # TODO: update direct-message room messages
