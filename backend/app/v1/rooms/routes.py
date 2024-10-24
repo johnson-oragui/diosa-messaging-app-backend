@@ -12,6 +12,7 @@ from app.database.session import get_session
 from app.v1.rooms.services import (
     room_service,
     room_member_service,
+    room_invitation_service
 )
 from app.v1.chats.services import message_service
 from app.v1.rooms.schemas import *
@@ -19,6 +20,8 @@ from app.core.custom_exceptions import (
     UserDoesNotExistError,
     CannotDeleteMessageError,
     CannotUpdateMessageError,
+    InvitationNotFoundError,
+    RoomNotFoundError,
 )
 from app.v1.chats.schemas import (
     AllMessagesResponse,
@@ -357,8 +360,88 @@ async def delete_room(room_id: str, request: Request,
     return
 
 
-# TODO: add room invitation
+# TODO: invite user to room
+@rooms.post("/{room_id}/invite", status_code=status.HTTP_200_OK,
+            response_model=RoomInvitationResponse)
+async def invite_user_to_room(room_id: str, request: Request,
+                              schema: RoomInvitationInput,
+                              token: Annotated[str, Depends(check_for_access_token)],
+                              session: Annotated[AsyncSession, Depends(get_session)]):
+    """
+    Invites a user to a room.
+    """
+    user = await get_current_active_user(
+        access_token=token,
+        request=request,
+        session=session,
+    )
+    try:
+        invitation = await room_invitation_service.invite_user_to_room(
+            room_id=room_id,
+            invitee_id=schema.invitee_id,
+            inviter_id=user.id,
+            session=session
+        )
+
+        return RoomInvitationResponse(
+            data=InvitationBase.model_validate(invitation, from_attributes=True)
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"{exc.args[0]}"
+        )
+
 # TODO: accept/reject room invitation
+@rooms.post("/{room_id}/accept-invite", status_code=status.HTTP_200_OK,
+            response_model=AcceptInvitationResponse)
+async def accept_invitation_to_room(room_id: str, request: Request,
+                              schema: AcceptInvitationInput,
+                              token: Annotated[str, Depends(check_for_access_token)],
+                              session: Annotated[AsyncSession, Depends(get_session)]):
+    """
+    Allows a user to accept an invitation.
+    """
+    user = await get_current_active_user(
+        access_token=token,
+        request=request,
+        session=session,
+    )
+    try:
+        invitation, room_member = await room_invitation_service.accept_room_invitations(
+            invitee_id=user.id,
+            invitation_id=schema.invitation_id,
+            room_id=room_id,
+            session=session
+        )
+        if invitation and not room_member:
+            # invitation has already been accepted
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User already a member"
+            )
+        logger.info(msg=f"invitation: {invitation}")
+        return AcceptInvitationResponse(
+                data=InvitationBase.model_validate(invitation, from_attributes=True)
+            )
+    except (
+            UserDoesNotExistError,
+            CannotDeleteMessageError,
+            CannotUpdateMessageError,
+            InvitationNotFoundError,
+            RoomNotFoundError,
+        ) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"{exc.args[0]}"
+        )
+
+
+# TODO: cancel pending room invitations
+# TODO: get pending room invitations
+# TODO: get accepted room invitations
+# TODO: get  rejected room invitations
+# TODO: get  ignored room invitations
 
 
 @rooms.post(
