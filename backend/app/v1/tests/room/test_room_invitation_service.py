@@ -671,3 +671,49 @@ class TestRoomInvitationService:
         )
 
         assert johnson_room_member is None
+
+    async def test_fetch_all_room_invitations(self,
+                          mock_jayson_user_dict,
+                          mock_johnson_user_dict,
+                          mock_public_room_one_dict,
+                          test_get_session,
+                          test_setup):
+        """
+        Test fetch all invites.
+        """
+        jayson = await user_service.create(mock_jayson_user_dict, test_get_session)
+        johnson = await user_service.create(mock_johnson_user_dict, test_get_session)
+
+        new_room, _, _ = await room_service.create_a_public_or_private_room(
+            room_name=mock_public_room_one_dict["room_name"],
+            creator_id=jayson.id,
+            session=test_get_session,
+            room_type="private",
+            description="a private room"
+        )
+
+        room_invitation = await room_invitation_service.invite_user_to_room(
+            invitee_id=johnson.id,
+            inviter_id=jayson.id,
+            room_id=new_room.id,
+            session=test_get_session
+        )
+
+        all_invites = await room_invitation_service.fetch_invitations(
+            user_id=johnson.id,
+            status="pending",
+            session=test_get_session
+        )
+
+        assert isinstance(all_invites, list)
+        assert len(all_invites) == 1
+        assert all_invites[0].id == room_invitation.id
+
+        all_invites = await room_invitation_service.fetch_invitations(
+            user_id=johnson.id,
+            status="rejected",
+            session=test_get_session
+        )
+
+        assert isinstance(all_invites, list)
+        assert len(all_invites) == 0
