@@ -7,9 +7,9 @@ from app.v1.profile.services import profile_service
 from app.v1.chats.services import message_service
 
 
-class TestCreatePrivatePublicRoomRoute:
+class TestPrivatePublicRoomRoute:
     """
-    Test class for create public or private room route
+    Test class for public or private room route
     """
 
     @pytest.mark.asyncio
@@ -329,6 +329,506 @@ class TestCreatePrivatePublicRoomRoute:
 
         assert data2["message"] == "Rooms Retrieved Successfully"
         assert data2["data"][0] == data["data"]["room"]
+
+    @pytest.mark.asyncio
+    async def test_delete_public_room_message_route_success(self,
+                                               client,
+                                               mock_johnson_user_dict,
+                                               mock_jayson_user_dict,
+                                               mock_user_id,
+                                               test_get_session,
+                                               test_setup):
+        """
+        Test delete public room messsage route, admin only.
+        Only Admin can delete room messages in a non-deletable-messages-room.
+        """
+        # create jayson user
+        jayson = await user_service.create(
+            mock_jayson_user_dict,
+            test_get_session
+        )
+        _ = await profile_service.create(
+            {"user_id": jayson.id},
+            test_get_session
+        )
+
+        mock_johnson_user_dict["id"] = mock_user_id
+
+        # create johnson user
+        johnson = await user_service.create(
+            mock_johnson_user_dict,
+            test_get_session
+        )
+        _ = await profile_service.create(
+            {"user_id": mock_user_id},
+            test_get_session
+        )
+
+        # jayson creates room, and messages are not deletable
+        new_room, _, _ =await room_service.create_a_public_or_private_room(
+            room_name="public-room-name",
+            creator_id=johnson.id,
+            session=test_get_session,
+            messages_deletable=False,
+            room_type="public"
+        )
+
+        # jayson and johnson creates messages.
+        messages = await message_service.create_all(
+            [
+                {
+                    "room_id": new_room.id,
+                    "user_id": jayson.id,
+                    "content": "Hello johnson",
+                    "chat_type": "public",
+                },
+                {
+                    "room_id": new_room.id,
+                    "user_id": jayson.id,
+                    "content": "Hello johnson",
+                    "chat_type": "public",
+                },
+                {
+                    "room_id": new_room.id,
+                    "user_id": mock_johnson_user_dict["id"],
+                    "content": "Hello Jayson",
+                    "chat_type": "public",
+                }
+            ],
+            test_get_session
+        )
+
+
+        # assertions
+        jayson_message_one = messages[0]
+        jayson_message_two = messages[1]
+        johnson_message_one = messages[2]
+        assert jayson_message_one.user_id == jayson.id
+        assert jayson_message_two.user_id == jayson.id
+        assert johnson_message_one.user_id == johnson.id
+
+        # admin johnson can delete jayson message
+        response3 = client.delete(
+            url=f'/api/v1/rooms/{new_room.id}/messages/{jayson_message_one.id}',
+            headers={
+                "Authorization": "Bearer fake"
+            }
+        )
+        assert response3.status_code == 204
+
+    @pytest.mark.asyncio
+    async def test_delete_public_room_message_route_failure_non_admin(self,
+                                               client,
+                                               mock_johnson_user_dict,
+                                               mock_jayson_user_dict,
+                                               mock_user_id,
+                                               test_get_session,
+                                               test_setup):
+        """
+        Test delete public room messsage route failure.
+        where another user tries to delete a message in a non deletable-messages-room.
+        """
+        # create jayson user
+        mock_jayson_user_dict["id"] = mock_user_id
+        jayson = await user_service.create(
+            mock_jayson_user_dict,
+            test_get_session
+        )
+        _ = await profile_service.create(
+            {"user_id": jayson.id},
+            test_get_session
+        )
+
+        # create johnson user
+        johnson = await user_service.create(
+            mock_johnson_user_dict,
+            test_get_session
+        )
+        _ = await profile_service.create(
+            {"user_id": johnson.id},
+            test_get_session
+        )
+
+        # jayson creates room, and messages are not deletable
+        new_room, _, _ =await room_service.create_a_public_or_private_room(
+            room_name="public-room-name",
+            creator_id=johnson.id,
+            session=test_get_session,
+            messages_deletable=False,
+            room_type="public"
+        )
+
+        # jayson and johnson creates messages.
+        messages = await message_service.create_all(
+            [
+                {
+                    "room_id": new_room.id,
+                    "user_id": jayson.id,
+                    "content": "Hello johnson",
+                    "chat_type": "public",
+                },
+                {
+                    "room_id": new_room.id,
+                    "user_id": jayson.id,
+                    "content": "Hello johnson",
+                    "chat_type": "public",
+                },
+                {
+                    "room_id": new_room.id,
+                    "user_id": johnson.id,
+                    "content": "Hello Jayson",
+                    "chat_type": "public",
+                }
+            ],
+            test_get_session
+        )
+
+        # assertions
+        jayson_message_one = messages[0]
+        jayson_message_two = messages[1]
+        johnson_message_one = messages[2]
+        assert jayson_message_one.user_id == jayson.id
+        assert jayson_message_two.user_id == jayson.id
+        assert johnson_message_one.user_id == johnson.id
+
+        # non-admin jayson can not delete his own message
+        response3 = client.delete(
+            url=f'/api/v1/rooms/{new_room.id}/messages/{jayson_message_one.id}',
+            headers={
+                "Authorization": "Bearer fake"
+            }
+        )
+        assert response3.status_code == 400
+        assert response3.json() == {
+            'status_code': 400,
+            'message': 'User is not allowed to delete the message',
+            'data': {}
+        }
+
+    @pytest.mark.asyncio
+    async def test_delete_public_room_messages_route_success(self,
+                                               client,
+                                               mock_johnson_user_dict,
+                                               mock_jayson_user_dict,
+                                               mock_user_id,
+                                               test_get_session,
+                                               test_setup):
+        """
+        Test delete public room messsages route, admin only.
+        Batch delete.
+        Only Admin can delete room messages in a non-deletable-messages-room.
+        """
+        # create jayson user
+        jayson = await user_service.create(
+            mock_jayson_user_dict,
+            test_get_session
+        )
+        _ = await profile_service.create(
+            {"user_id": jayson.id},
+            test_get_session
+        )
+
+        mock_johnson_user_dict["id"] = mock_user_id
+
+        # create johnson user
+        johnson = await user_service.create(
+            mock_johnson_user_dict,
+            test_get_session
+        )
+        _ = await profile_service.create(
+            {"user_id": mock_user_id},
+            test_get_session
+        )
+
+        # jayson creates room, and messages are not deletable
+        new_room, _, _ =await room_service.create_a_public_or_private_room(
+            room_name="public-room-name",
+            creator_id=johnson.id,
+            session=test_get_session,
+            messages_deletable=False,
+            room_type="public"
+        )
+
+        # jayson and johnson creates messages.
+        messages = await message_service.create_all(
+            [
+                {
+                    "room_id": new_room.id,
+                    "user_id": jayson.id,
+                    "content": "Hello johnson",
+                    "chat_type": "public",
+                },
+                {
+                    "room_id": new_room.id,
+                    "user_id": jayson.id,
+                    "content": "Hello johnson",
+                    "chat_type": "public",
+                },
+                {
+                    "room_id": new_room.id,
+                    "user_id": mock_johnson_user_dict["id"],
+                    "content": "Hello Jayson",
+                    "chat_type": "public",
+                }
+            ],
+            test_get_session
+        )
+
+
+        # assertions
+        jayson_message_one = messages[0]
+        jayson_message_two = messages[1]
+        johnson_message_one = messages[2]
+        assert jayson_message_one.user_id == jayson.id
+        assert jayson_message_two.user_id == jayson.id
+        assert johnson_message_one.user_id == johnson.id
+
+        # admin johnson can delete jayson message, and all messages
+        response3 = client.request(
+            method="DELETE",
+            url=f'/api/v1/rooms/{new_room.id}/messages',
+            json={
+                "message_ids": [1, 2, 3]
+            },
+            headers={
+                "Authorization": "Bearer fake"
+            }
+        )
+        assert response3.status_code == 204
+
+    @pytest.mark.asyncio
+    async def test_delete_public_room_messages_route_failure_non_admin(self,
+                                               client,
+                                               mock_johnson_user_dict,
+                                               mock_jayson_user_dict,
+                                               mock_user_id,
+                                               test_get_session,
+                                               test_setup):
+        """
+        Test delete public room messsage route failure.
+        Non-admin cannot batch delete in a non-messages-deletable.
+        where another user tries to delete messages in a non deletable-messages-room.
+        """
+        # create jayson user
+        mock_jayson_user_dict["id"] = mock_user_id
+        jayson = await user_service.create(
+            mock_jayson_user_dict,
+            test_get_session
+        )
+        _ = await profile_service.create(
+            {"user_id": jayson.id},
+            test_get_session
+        )
+
+        # create johnson user
+        johnson = await user_service.create(
+            mock_johnson_user_dict,
+            test_get_session
+        )
+        _ = await profile_service.create(
+            {"user_id": johnson.id},
+            test_get_session
+        )
+
+        # jayson creates room, and messages are not deletable
+        new_room, _, _ =await room_service.create_a_public_or_private_room(
+            room_name="public-room-name",
+            creator_id=johnson.id,
+            session=test_get_session,
+            messages_deletable=False,
+            room_type="public"
+        )
+
+        # jayson and johnson creates messages.
+        messages = await message_service.create_all(
+            [
+                {
+                    "room_id": new_room.id,
+                    "user_id": jayson.id,
+                    "content": "Hello johnson",
+                    "chat_type": "public",
+                },
+                {
+                    "room_id": new_room.id,
+                    "user_id": jayson.id,
+                    "content": "Hello johnson",
+                    "chat_type": "public",
+                },
+                {
+                    "room_id": new_room.id,
+                    "user_id": johnson.id,
+                    "content": "Hello Jayson",
+                    "chat_type": "public",
+                }
+            ],
+            test_get_session
+        )
+
+        # assertions
+        jayson_message_one = messages[0]
+        jayson_message_two = messages[1]
+        johnson_message_one = messages[2]
+        assert jayson_message_one.user_id == jayson.id
+        assert jayson_message_two.user_id == jayson.id
+        assert johnson_message_one.user_id == johnson.id
+
+        # non-admin jayson can not delete any message
+        response3 = client.request(
+            method="DELETE",
+            url=f'/api/v1/rooms/{new_room.id}/messages',
+            json={
+                "message_ids": [1, 2, 3]
+            },
+            headers={
+                "Authorization": "Bearer fake"
+            }
+        )
+        assert response3.status_code == 400
+        assert response3.json() == {
+            'status_code': 400,
+            'message': 'User is not allowed to delete the message',
+            'data': {}
+        }
+
+    @pytest.mark.asyncio
+    async def test_update_room_fields_route(self,
+                                               client,
+                                               mock_johnson_user_dict,
+                                               mock_jayson_user_dict,
+                                               mock_user_id,
+                                               test_get_session,
+                                               test_setup):
+        """
+        Tests successfull updating of roo-field route.
+        """
+        # create jayson user
+        jayson = await user_service.create(
+            mock_jayson_user_dict,
+            test_get_session
+        )
+        _ = await profile_service.create(
+            {"user_id": jayson.id},
+            test_get_session
+        )
+
+        mock_johnson_user_dict["id"] = mock_user_id
+
+        # create johnson user
+        johnson = await user_service.create(
+            mock_johnson_user_dict,
+            test_get_session
+        )
+        _ = await profile_service.create(
+            {"user_id": mock_user_id},
+            test_get_session
+        )
+
+        # jayson creates room, and messages are not deletable
+        new_room, _, _ =await room_service.create_a_public_or_private_room(
+            room_name="public-room-name",
+            creator_id=johnson.id,
+            session=test_get_session,
+            messages_deletable=False,
+            room_type="public"
+        )
+
+        await room_member_service.create(
+            {
+                "room_id": new_room.id,
+                "user_id": jayson.id,
+                "room_type": "public",
+            },
+            test_get_session
+        )
+
+        print("new_room: ", new_room.id)
+        # request to update room.messages_deletable and room_type
+        response = client.put(
+            url=f"/api/v1/rooms/{new_room.id}",
+            json={
+                "messages_deletable": True,
+                "room_type": "private",
+                "description": "great one",
+            },
+            headers={
+                "Authorization": "Bearer fake",
+            }
+        )
+
+        assert response.status_code == 201
+        data = response.json()
+
+        assert data["data"]["room_type"] == "private"
+        assert data["data"]["messages_deletable"] == True
+        assert data["data"]["description"] == "great one"
+
+    @pytest.mark.asyncio
+    async def test_delete_room_route(self,
+                                   client,
+                                   mock_johnson_user_dict,
+                                   mock_user_id,
+                                   test_get_session,
+                                   test_setup):
+        """
+        Test get_rooms route.
+        """
+        mock_johnson_user_dict["id"] = mock_user_id
+
+        _ = await user_service.create(mock_johnson_user_dict, test_get_session)
+
+        response = client.post(
+            url="/api/v1/rooms/create",
+            json={
+                "room_name": "new-room",
+                "room_type": "public",
+                "messages_deletable": True
+            },
+            headers={
+                "Authorization": f"Bearer fake"
+            }
+        )
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["message"] == "Room Created Successfully"
+        assert isinstance(data["data"]["room"], dict)
+        assert isinstance(data["data"]["room_members"], list)
+
+        response2 = client.get(
+            url="/api/v1/rooms",
+            headers={
+                "Authorization": "Bearer fake",
+            }
+        )
+
+        assert response2.status_code == 200
+
+        data2 = response2.json()
+
+        assert data2["message"] == "Rooms Retrieved Successfully"
+        assert data2["data"][0] == data["data"]["room"]
+
+        response3 = client.delete(
+            url=f'/api/v1/rooms/{data["data"]["room"]["id"]}',
+            headers={
+                "Authorization": "Bearer fake",
+            }
+        )
+
+        assert response3.status_code == 204
+
+        response4 = client.get(
+            url="/api/v1/rooms",
+            headers={
+                "Authorization": "Bearer fake",
+            }
+        )
+
+        assert response4.status_code == 200
+
+        data4 = response4.json()
+
+        assert data4["data"] == []
 
 class TestCreateDirectMessageRoomRoute:
     """
@@ -977,435 +1477,3 @@ class TestCreateDirectMessageRoomRoute:
             }
         )
         assert response3.status_code == 400
-
-    @pytest.mark.asyncio
-    async def test_delete_public_room_message_route_success(self,
-                                               client,
-                                               mock_johnson_user_dict,
-                                               mock_jayson_user_dict,
-                                               mock_user_id,
-                                               test_get_session,
-                                               test_setup):
-        """
-        Test delete public room messsage route, admin only.
-        Only Admin can delete room messages in a non-deletable-messages-room.
-        """
-        # create jayson user
-        jayson = await user_service.create(
-            mock_jayson_user_dict,
-            test_get_session
-        )
-        _ = await profile_service.create(
-            {"user_id": jayson.id},
-            test_get_session
-        )
-
-        mock_johnson_user_dict["id"] = mock_user_id
-
-        # create johnson user
-        johnson = await user_service.create(
-            mock_johnson_user_dict,
-            test_get_session
-        )
-        _ = await profile_service.create(
-            {"user_id": mock_user_id},
-            test_get_session
-        )
-
-        # jayson creates room, and messages are not deletable
-        new_room, _, _ =await room_service.create_a_public_or_private_room(
-            room_name="public-room-name",
-            creator_id=johnson.id,
-            session=test_get_session,
-            messages_deletable=False,
-            room_type="public"
-        )
-
-        # jayson and johnson creates messages.
-        messages = await message_service.create_all(
-            [
-                {
-                    "room_id": new_room.id,
-                    "user_id": jayson.id,
-                    "content": "Hello johnson",
-                    "chat_type": "public",
-                },
-                {
-                    "room_id": new_room.id,
-                    "user_id": jayson.id,
-                    "content": "Hello johnson",
-                    "chat_type": "public",
-                },
-                {
-                    "room_id": new_room.id,
-                    "user_id": mock_johnson_user_dict["id"],
-                    "content": "Hello Jayson",
-                    "chat_type": "public",
-                }
-            ],
-            test_get_session
-        )
-
-
-        # assertions
-        jayson_message_one = messages[0]
-        jayson_message_two = messages[1]
-        johnson_message_one = messages[2]
-        assert jayson_message_one.user_id == jayson.id
-        assert jayson_message_two.user_id == jayson.id
-        assert johnson_message_one.user_id == johnson.id
-
-        # admin johnson can delete jayson message
-        response3 = client.delete(
-            url=f'/api/v1/rooms/{new_room.id}/messages/{jayson_message_one.id}',
-            headers={
-                "Authorization": "Bearer fake"
-            }
-        )
-        assert response3.status_code == 204
-
-    @pytest.mark.asyncio
-    async def test_delete_public_room_message_route_failure_non_admin(self,
-                                               client,
-                                               mock_johnson_user_dict,
-                                               mock_jayson_user_dict,
-                                               mock_user_id,
-                                               test_get_session,
-                                               test_setup):
-        """
-        Test delete public room messsage route failure.
-        where another user tries to delete a message in a non deletable-messages-room.
-        """
-        # create jayson user
-        mock_jayson_user_dict["id"] = mock_user_id
-        jayson = await user_service.create(
-            mock_jayson_user_dict,
-            test_get_session
-        )
-        _ = await profile_service.create(
-            {"user_id": jayson.id},
-            test_get_session
-        )
-
-        # create johnson user
-        johnson = await user_service.create(
-            mock_johnson_user_dict,
-            test_get_session
-        )
-        _ = await profile_service.create(
-            {"user_id": johnson.id},
-            test_get_session
-        )
-
-        # jayson creates room, and messages are not deletable
-        new_room, _, _ =await room_service.create_a_public_or_private_room(
-            room_name="public-room-name",
-            creator_id=johnson.id,
-            session=test_get_session,
-            messages_deletable=False,
-            room_type="public"
-        )
-
-        # jayson and johnson creates messages.
-        messages = await message_service.create_all(
-            [
-                {
-                    "room_id": new_room.id,
-                    "user_id": jayson.id,
-                    "content": "Hello johnson",
-                    "chat_type": "public",
-                },
-                {
-                    "room_id": new_room.id,
-                    "user_id": jayson.id,
-                    "content": "Hello johnson",
-                    "chat_type": "public",
-                },
-                {
-                    "room_id": new_room.id,
-                    "user_id": johnson.id,
-                    "content": "Hello Jayson",
-                    "chat_type": "public",
-                }
-            ],
-            test_get_session
-        )
-
-        # assertions
-        jayson_message_one = messages[0]
-        jayson_message_two = messages[1]
-        johnson_message_one = messages[2]
-        assert jayson_message_one.user_id == jayson.id
-        assert jayson_message_two.user_id == jayson.id
-        assert johnson_message_one.user_id == johnson.id
-
-        # non-admin jayson can not delete his own message
-        response3 = client.delete(
-            url=f'/api/v1/rooms/{new_room.id}/messages/{jayson_message_one.id}',
-            headers={
-                "Authorization": "Bearer fake"
-            }
-        )
-        assert response3.status_code == 400
-        assert response3.json() == {
-            'status_code': 400,
-            'message': 'User is not allowed to delete the message',
-            'data': {}
-        }
-
-    @pytest.mark.asyncio
-    async def test_delete_public_room_messages_route_success(self,
-                                               client,
-                                               mock_johnson_user_dict,
-                                               mock_jayson_user_dict,
-                                               mock_user_id,
-                                               test_get_session,
-                                               test_setup):
-        """
-        Test delete public room messsages route, admin only.
-        Batch delete.
-        Only Admin can delete room messages in a non-deletable-messages-room.
-        """
-        # create jayson user
-        jayson = await user_service.create(
-            mock_jayson_user_dict,
-            test_get_session
-        )
-        _ = await profile_service.create(
-            {"user_id": jayson.id},
-            test_get_session
-        )
-
-        mock_johnson_user_dict["id"] = mock_user_id
-
-        # create johnson user
-        johnson = await user_service.create(
-            mock_johnson_user_dict,
-            test_get_session
-        )
-        _ = await profile_service.create(
-            {"user_id": mock_user_id},
-            test_get_session
-        )
-
-        # jayson creates room, and messages are not deletable
-        new_room, _, _ =await room_service.create_a_public_or_private_room(
-            room_name="public-room-name",
-            creator_id=johnson.id,
-            session=test_get_session,
-            messages_deletable=False,
-            room_type="public"
-        )
-
-        # jayson and johnson creates messages.
-        messages = await message_service.create_all(
-            [
-                {
-                    "room_id": new_room.id,
-                    "user_id": jayson.id,
-                    "content": "Hello johnson",
-                    "chat_type": "public",
-                },
-                {
-                    "room_id": new_room.id,
-                    "user_id": jayson.id,
-                    "content": "Hello johnson",
-                    "chat_type": "public",
-                },
-                {
-                    "room_id": new_room.id,
-                    "user_id": mock_johnson_user_dict["id"],
-                    "content": "Hello Jayson",
-                    "chat_type": "public",
-                }
-            ],
-            test_get_session
-        )
-
-
-        # assertions
-        jayson_message_one = messages[0]
-        jayson_message_two = messages[1]
-        johnson_message_one = messages[2]
-        assert jayson_message_one.user_id == jayson.id
-        assert jayson_message_two.user_id == jayson.id
-        assert johnson_message_one.user_id == johnson.id
-
-        # admin johnson can delete jayson message, and all messages
-        response3 = client.request(
-            method="DELETE",
-            url=f'/api/v1/rooms/{new_room.id}/messages',
-            json={
-                "message_ids": [1, 2, 3]
-            },
-            headers={
-                "Authorization": "Bearer fake"
-            }
-        )
-        assert response3.status_code == 204
-
-    @pytest.mark.asyncio
-    async def test_delete_public_room_messages_route_failure_non_admin(self,
-                                               client,
-                                               mock_johnson_user_dict,
-                                               mock_jayson_user_dict,
-                                               mock_user_id,
-                                               test_get_session,
-                                               test_setup):
-        """
-        Test delete public room messsage route failure.
-        Non-admin cannot batch delete in a non-messages-deletable.
-        where another user tries to delete messages in a non deletable-messages-room.
-        """
-        # create jayson user
-        mock_jayson_user_dict["id"] = mock_user_id
-        jayson = await user_service.create(
-            mock_jayson_user_dict,
-            test_get_session
-        )
-        _ = await profile_service.create(
-            {"user_id": jayson.id},
-            test_get_session
-        )
-
-        # create johnson user
-        johnson = await user_service.create(
-            mock_johnson_user_dict,
-            test_get_session
-        )
-        _ = await profile_service.create(
-            {"user_id": johnson.id},
-            test_get_session
-        )
-
-        # jayson creates room, and messages are not deletable
-        new_room, _, _ =await room_service.create_a_public_or_private_room(
-            room_name="public-room-name",
-            creator_id=johnson.id,
-            session=test_get_session,
-            messages_deletable=False,
-            room_type="public"
-        )
-
-        # jayson and johnson creates messages.
-        messages = await message_service.create_all(
-            [
-                {
-                    "room_id": new_room.id,
-                    "user_id": jayson.id,
-                    "content": "Hello johnson",
-                    "chat_type": "public",
-                },
-                {
-                    "room_id": new_room.id,
-                    "user_id": jayson.id,
-                    "content": "Hello johnson",
-                    "chat_type": "public",
-                },
-                {
-                    "room_id": new_room.id,
-                    "user_id": johnson.id,
-                    "content": "Hello Jayson",
-                    "chat_type": "public",
-                }
-            ],
-            test_get_session
-        )
-
-        # assertions
-        jayson_message_one = messages[0]
-        jayson_message_two = messages[1]
-        johnson_message_one = messages[2]
-        assert jayson_message_one.user_id == jayson.id
-        assert jayson_message_two.user_id == jayson.id
-        assert johnson_message_one.user_id == johnson.id
-
-        # non-admin jayson can not delete any message
-        response3 = client.request(
-            method="DELETE",
-            url=f'/api/v1/rooms/{new_room.id}/messages',
-            json={
-                "message_ids": [1, 2, 3]
-            },
-            headers={
-                "Authorization": "Bearer fake"
-            }
-        )
-        assert response3.status_code == 400
-        assert response3.json() == {
-            'status_code': 400,
-            'message': 'User is not allowed to delete the message',
-            'data': {}
-        }
-
-    @pytest.mark.asyncio
-    async def test_update_room_fields_route(self,
-                                               client,
-                                               mock_johnson_user_dict,
-                                               mock_jayson_user_dict,
-                                               mock_user_id,
-                                               test_get_session,
-                                               test_setup):
-        """
-        Tests successfull updating of roo-field route.
-        """
-        # create jayson user
-        jayson = await user_service.create(
-            mock_jayson_user_dict,
-            test_get_session
-        )
-        _ = await profile_service.create(
-            {"user_id": jayson.id},
-            test_get_session
-        )
-
-        mock_johnson_user_dict["id"] = mock_user_id
-
-        # create johnson user
-        johnson = await user_service.create(
-            mock_johnson_user_dict,
-            test_get_session
-        )
-        _ = await profile_service.create(
-            {"user_id": mock_user_id},
-            test_get_session
-        )
-
-        # jayson creates room, and messages are not deletable
-        new_room, _, _ =await room_service.create_a_public_or_private_room(
-            room_name="public-room-name",
-            creator_id=johnson.id,
-            session=test_get_session,
-            messages_deletable=False,
-            room_type="public"
-        )
-
-        await room_member_service.create(
-            {
-                "room_id": new_room.id,
-                "user_id": jayson.id,
-                "room_type": "public",
-            },
-            test_get_session
-        )
-
-        print("new_room: ", new_room.id)
-        # request to update room.messages_deletable and room_type
-        response = client.put(
-            url=f"/api/v1/rooms/{new_room.id}",
-            json={
-                "messages_deletable": True,
-                "room_type": "private",
-                "description": "great one",
-            },
-            headers={
-                "Authorization": "Bearer fake",
-            }
-        )
-
-        assert response.status_code == 201
-        data = response.json()
-
-        assert data["data"]["room_type"] == "private"
-        assert data["data"]["messages_deletable"] == True
-        assert data["data"]["description"] == "great one"
