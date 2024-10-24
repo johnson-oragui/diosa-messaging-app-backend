@@ -247,6 +247,9 @@ class InvitationBase(BaseModel):
     """
     Class for invitation base.
     """
+    id: str = Field(
+        examples=["pokk58f9-d19e-4931-b414-5b806a2f4954"]
+    )
     room_id: str = Field(
         examples=["da9158f9-d19e-4931-b414-5b806a2f4954"]
     )
@@ -278,6 +281,16 @@ class RoomInvitationResponse(RoomBelongsToResponse):
     )
     data: InvitationBase
 
+class AllInvitationResponse(RoomBelongsToResponse):
+    """
+    Class for all room-invitation response
+    """
+    message: str = Field(
+        default="Room invitations fetched successfully",
+        examples=["Room invitations fetched successfully"]
+    )
+    data: List[Optional[InvitationBase]]
+
 class AcceptInvitationInput(BaseModel):
     """
     Class for room invitation.
@@ -307,5 +320,5 @@ __all__ = [
     "RoomMembersBase", "CreateDirectMessageSchema", "RoomBelongsToResponse",
     "AllDirectRoomsResponse", "UpdateRoomSchema", "UpdateRoomResponse",
     "RoomInvitationInput", "InvitationBase", "RoomInvitationResponse",
-    "AcceptInvitationInput", "AcceptInvitationResponse",
+    "AcceptInvitationInput", "AcceptInvitationResponse", "AllInvitationResponse",
 ]
