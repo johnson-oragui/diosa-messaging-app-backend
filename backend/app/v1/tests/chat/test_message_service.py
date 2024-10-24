@@ -377,7 +377,8 @@ class TestMessageService:
 
         fetched_message = await message_service.fetch(
             {
-                "id": johnson_message.id
+                "id": johnson_message.id,
+                "is_deleted": False,
             },
             test_get_session
         )
@@ -433,7 +434,8 @@ class TestMessageService:
 
         fetched_message = await message_service.fetch(
             {
-                "id": johnson_message.id
+                "id": johnson_message.id,
+                "is_deleted": False
             },
             test_get_session
         )
@@ -486,7 +488,8 @@ class TestMessageService:
 
         fetched_message = await message_service.fetch(
             {
-                "id": johnson_message.id
+                "id": johnson_message.id,
+                "is_deleted": False,
             },
             test_get_session
         )
