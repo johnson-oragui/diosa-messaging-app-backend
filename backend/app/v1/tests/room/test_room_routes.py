@@ -830,6 +830,198 @@ class TestPrivatePublicRoomRoute:
 
         assert data4["data"] == []
 
+    @pytest.mark.asyncio
+    async def test_update_room_messages_route_success(self,
+                                               client,
+                                               mock_johnson_user_dict,
+                                               mock_user_id,
+                                               test_get_session,
+                                               test_setup):
+        """
+        Test update room messsages route.
+        """
+        mock_johnson_user_dict["id"] = mock_user_id
+
+        # create johnson user
+        johnson = await user_service.create(
+            mock_johnson_user_dict,
+            test_get_session
+        )
+        _ = await profile_service.create(
+            {"user_id": mock_user_id},
+            test_get_session
+        )
+
+        new_room, _, _ =await room_service.create_a_public_or_private_room(
+            room_name="public-room-name",
+            creator_id=johnson.id,
+            session=test_get_session,
+            messages_deletable=False,
+            room_type="public"
+        )
+
+        message = await message_service.create(
+            {
+                "room_id": new_room.id,
+                "user_id": mock_johnson_user_dict["id"],
+                "content": "Hello Jayson",
+                "chat_type": "public",
+            },
+            test_get_session
+        )
+
+        response = client.patch(
+            url=f'/api/v1/rooms/{new_room.id}/messages/{message.id}',
+            json={
+                "message": "updated message."
+            },
+            headers={
+                "Authorization": "Bearer fake"
+            }
+        )
+        assert response.status_code == 200
+
+        data = response.json()
+
+        assert data["message"] == "Message updated successfully."
+        assert data["data"]["content"] == "updated message."
+
+    @pytest.mark.asyncio
+    async def test_update_room_messages_route_unsuccess(self,
+                                               client,
+                                               mock_johnson_user_dict,
+                                               mock_jayson_user_dict,
+                                               mock_user_id,
+                                               test_get_session,
+                                               test_setup):
+        """
+        Test update room message route unsuccessfull by another user..
+        """
+        # create jayson user
+        jayson = await user_service.create(
+            mock_jayson_user_dict,
+            test_get_session
+        )
+        _ = await profile_service.create(
+            {"user_id": jayson.id},
+            test_get_session
+        )
+
+        mock_johnson_user_dict["id"] = mock_user_id
+
+        # create johnson user
+        johnson = await user_service.create(
+            mock_johnson_user_dict,
+            test_get_session
+        )
+        _ = await profile_service.create(
+            {"user_id": mock_user_id},
+            test_get_session
+        )
+
+        new_room, _, _ =await room_service.create_a_public_or_private_room(
+            room_name="public-room-name",
+            creator_id=jayson.id,
+            session=test_get_session,
+            messages_deletable=False,
+            room_type="public"
+        )
+
+        message = await message_service.create(
+            {
+                "room_id": new_room.id,
+                "user_id": jayson.id,
+                "content": "Hello Jayson",
+                "chat_type": "public",
+            },
+            test_get_session
+        )
+
+        response = client.patch(
+            url=f'/api/v1/rooms/{new_room.id}/messages/{message.id}',
+            json={
+                "message": "johnson is updating..."
+            },
+            headers={
+                "Authorization": "Bearer fake"
+            }
+        )
+        assert response.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_update_room_messages_route_validation(self,
+                                               client,
+                                               mock_johnson_user_dict,
+                                               mock_user_id,
+                                               test_get_session,
+                                               test_setup):
+        """
+        Test update room messages route validation.
+        """
+        mock_johnson_user_dict["id"] = mock_user_id
+
+        # create johnson user
+        johnson = await user_service.create(
+            mock_johnson_user_dict,
+            test_get_session
+        )
+        _ = await profile_service.create(
+            {"user_id": mock_user_id},
+            test_get_session
+        )
+
+        new_room, _, _ =await room_service.create_a_public_or_private_room(
+            room_name="public-room-name",
+            creator_id=johnson.id,
+            session=test_get_session,
+            messages_deletable=False,
+            room_type="public"
+        )
+
+        message = await message_service.create(
+            {
+                "room_id": new_room.id,
+                "user_id": mock_johnson_user_dict["id"],
+                "content": "Hello Jayson",
+                "chat_type": "public",
+            },
+            test_get_session
+        )
+
+        response3 = client.patch(
+            url=f'/api/v1/rooms/{new_room.id}/messages/{message.id}',
+            json={
+                "message": ""
+            },
+            headers={
+                "Authorization": "Bearer fake"
+            }
+        )
+        assert response3.status_code == 422
+
+        response3 = client.patch(
+            url=f'/api/v1/rooms/{new_room.id}/messages/{message.id}',
+            json={
+                "message": " "
+            },
+            headers={
+                "Authorization": "Bearer fake"
+            }
+        )
+        assert response3.status_code == 422
+
+        response3 = client.patch(
+            url=f'/api/v1/rooms/{new_room.id}/messages/{message.id}',
+            json={
+                "message": "."
+            },
+            headers={
+                "Authorization": "Bearer fake"
+            }
+        )
+        assert response3.status_code == 200
+
+
 class TestCreateDirectMessageRoomRoute:
     """
     Test class for create direct-message room route
