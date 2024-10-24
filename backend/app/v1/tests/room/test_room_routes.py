@@ -3,6 +3,7 @@ import pytest
 from app.v1.users.services import user_service
 from app.v1.rooms.services import room_service
 from app.v1.rooms.services import room_member_service
+from app.v1.rooms.services import room_invitation_service
 from app.v1.profile.services import profile_service
 from app.v1.chats.services import message_service
 
@@ -1020,6 +1021,258 @@ class TestPrivatePublicRoomRoute:
             }
         )
         assert response3.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_invite_user_to__public_room_route(self,
+                                             client,
+                          mock_jayson_user_dict,
+                          mock_johnson_user_dict,
+                          mock_public_room_one_dict,
+                          mock_user_id,
+                          test_get_session,
+                          test_setup):
+        """
+        Test invite user to room.
+        """
+        jayson = await user_service.create(mock_jayson_user_dict, test_get_session)
+        mock_johnson_user_dict["id"] = mock_user_id
+
+        # create johnson user
+        johnson = await user_service.create(
+            mock_johnson_user_dict,
+            test_get_session
+        )
+        _ = await profile_service.create(
+            {"user_id": mock_user_id},
+            test_get_session
+        )
+
+        new_room, _, _ = await room_service.create_a_public_or_private_room(
+            room_name=mock_public_room_one_dict["room_name"],
+            creator_id=johnson.id,
+            session=test_get_session,
+            room_type="public",
+            description="a private room"
+        )
+
+        response = client.post(
+            url=f'/api/v1/rooms/{new_room.id}/invite',
+            json={
+                "invitee_id": jayson.id
+            },
+            headers={
+                "Authorization": "Bearer fake"
+            }
+        )
+        assert response.status_code == 200
+
+        data = response.json()
+
+        assert data["data"]["inviter_id"] == johnson.id
+
+    @pytest.mark.asyncio
+    async def test_invite_user_to_private_room_route(self,
+                                             client,
+                          mock_jayson_user_dict,
+                          mock_johnson_user_dict,
+                          mock_public_room_one_dict,
+                          mock_user_id,
+                          test_get_session,
+                          test_setup):
+        """
+        Test invite user to private room.
+        """
+        mock_jayson_user_dict["id"] = mock_user_id
+        jayson = await user_service.create(mock_jayson_user_dict, test_get_session)
+        # create johnson user
+        johnson = await user_service.create(
+            mock_johnson_user_dict,
+            test_get_session
+        )
+        _ = await profile_service.create(
+            {"user_id": mock_user_id},
+            test_get_session
+        )
+
+        # jayson creates room
+        new_room, _, _ = await room_service.create_a_public_or_private_room(
+            room_name=mock_public_room_one_dict["room_name"],
+            creator_id=jayson.id,
+            session=test_get_session,
+            room_type="private",
+            description="a private room"
+        )
+
+        # jayson invites  johnson
+        response = client.post(
+            url=f'/api/v1/rooms/{new_room.id}/invite',
+            json={
+                "invitee_id": johnson.id
+            },
+            headers={
+                "Authorization": "Bearer fake"
+            }
+        )
+        assert response.status_code == 200
+
+        data = response.json()
+
+        assert data["data"]["inviter_id"] == jayson.id
+
+    @pytest.mark.asyncio
+    async def test_invite_user_to_private_room_route_failure(self,
+                                             client,
+                          mock_jayson_user_dict,
+                          mock_johnson_user_dict,
+                          mock_public_room_one_dict,
+                          mock_user_id,
+                          test_get_session,
+                          test_setup):
+        """
+        Test invite user to private room failure.
+        """
+        mock_jayson_user_dict["id"] = mock_user_id
+        jayson = await user_service.create(mock_jayson_user_dict, test_get_session)
+        jane = await user_service.create(
+            {
+                "username": "jane",
+                "first_name": "jane",
+                "last_name": "dennis",
+                "email": "jane@gmail.com",
+                "password": "SomePasword1234#",
+                "idempotency_key": "idempotency_key"
+            },
+            test_get_session
+        )
+        # create johnson user
+        johnson = await user_service.create(
+            mock_johnson_user_dict,
+            test_get_session
+        )
+        _ = await profile_service.create(
+            {"user_id": mock_user_id},
+            test_get_session
+        )
+
+        # johnson creates room
+        new_room, _, _ = await room_service.create_a_public_or_private_room(
+            room_name=mock_public_room_one_dict["room_name"],
+            creator_id=johnson.id,
+            session=test_get_session,
+            room_type="private",
+            description="a private room"
+        )
+
+        # jayson(not admin) invites  jane
+        response = client.post(
+            url=f'/api/v1/rooms/{new_room.id}/invite',
+            json={
+                "invitee_id": jane.id
+            },
+            headers={
+                "Authorization": "Bearer fake"
+            }
+        )
+        assert response.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_invite_user_to_DM_room_route_failure(self,
+                                             client,
+                          mock_jayson_user_dict,
+                          mock_johnson_user_dict,
+                          mock_user_id,
+                          test_get_session,
+                          test_setup):
+        """
+        Test invite user to direct-message room failure.
+        """
+        mock_jayson_user_dict["id"] = mock_user_id
+        jayson = await user_service.create(mock_jayson_user_dict, test_get_session)
+
+        # create johnson user
+        johnson = await user_service.create(
+            mock_johnson_user_dict,
+            test_get_session
+        )
+        _ = await profile_service.create(
+            {"user_id": mock_user_id},
+            test_get_session
+        )
+
+        # johnson creates dm room
+        new_room, _, _ = await room_service.create_direct_message_room(
+            user_id_1=jayson.id,
+            user_id_2=johnson.id,
+            session=test_get_session,
+        )
+
+        response = client.post(
+            url=f'/api/v1/rooms/{new_room.id}/invite',
+            json={
+                "invitee_id": johnson.id
+            },
+            headers={
+                "Authorization": "Bearer fake"
+            }
+        )
+        assert response.status_code == 403
+
+    async def test_accept_room_invitations_route(self,
+                                                 client,
+                                                mock_jayson_user_dict,
+                                                mock_johnson_user_dict,
+                                                mock_user_id,
+                                                mock_public_room_one_dict,
+                                                test_get_session,
+                                                test_setup):
+        """
+        Test accept private room invitations.
+        """
+        mock_jayson_user_dict["id"] = mock_user_id
+        jayson = await user_service.create(mock_jayson_user_dict, test_get_session)
+        # create johnson user
+        johnson = await user_service.create(
+            mock_johnson_user_dict,
+            test_get_session
+        )
+        _ = await profile_service.create(
+            {"user_id": mock_user_id},
+            test_get_session
+        )
+
+        # johnson creates room
+        new_room, _, _ = await room_service.create_a_public_or_private_room(
+            room_name=mock_public_room_one_dict["room_name"],
+            creator_id=johnson.id,
+            session=test_get_session,
+            room_type="private",
+            description="a private room"
+        )
+
+        # johnson invites  jayson
+        invitation = await room_invitation_service.invite_user_to_room(
+            invitee_id=jayson.id,
+            inviter_id=johnson.id,
+            room_id=new_room.id,
+            session=test_get_session
+        )
+
+        # jayson accepts invitation
+        response = client.post(
+            url=f'/api/v1/rooms/{new_room.id}/accept-invite',
+            json={
+                "invitation_id": invitation.id
+            },
+            headers={
+                "Authorization": "Bearer fake"
+            }
+        )
+        assert response.status_code == 200
+
+        data = response.json()
+
+        assert data["data"]["inviter_id"] == johnson.id
+        assert data["data"]["invitation_status"] == "accepted"
 
 
 class TestCreateDirectMessageRoomRoute:

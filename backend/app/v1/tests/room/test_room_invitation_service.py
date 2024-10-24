@@ -7,7 +7,7 @@ from app.v1.rooms.services import (
 )
 from app.v1.users.services import user_service
 from app.core.custom_exceptions import (
-    UserNotAnAdminError,
+    UserNotAMemberError,
     InvitationNotFoundError,
 )
 
@@ -413,7 +413,7 @@ class TestRoomInvitationService:
                           test_get_session,
                           test_setup):
         """
-        Test invite user to room raises UserNotAnAdminError.
+        Test invite user to room raises UserNotAMemberError.
         """
         jayson = await user_service.create(mock_jayson_user_dict, test_get_session)
         johnson = await user_service.create(mock_johnson_user_dict, test_get_session)
@@ -426,7 +426,7 @@ class TestRoomInvitationService:
             description="a private room"
         )
 
-        with pytest.raises(UserNotAnAdminError):
+        with pytest.raises(UserNotAMemberError):
             await room_invitation_service.invite_user_to_room(
                 invitee_id=jayson.id,
                 inviter_id=johnson.id,
@@ -473,6 +473,7 @@ class TestRoomInvitationService:
         accepted_invitation, new_room_member = await room_invitation_service.accept_room_invitations(
             invitee_id=johnson.id,
             room_id=new_room.id,
+            invitation_id=room_invitation.id,
             session=test_get_session
         )
 
@@ -525,6 +526,7 @@ class TestRoomInvitationService:
         accepted_invitation, new_room_member = await room_invitation_service.accept_room_invitations(
             invitee_id=johnson.id,
             room_id=new_room.id,
+            invitation_id=room_invitation.id,
             session=test_get_session
         )
 
@@ -562,6 +564,7 @@ class TestRoomInvitationService:
             _, _ = await room_invitation_service.accept_room_invitations(
                 invitee_id=johnson.id,
                 room_id=new_room.id,
+                invitation_id="fake",
                 session=test_get_session
             )
 
