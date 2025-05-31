@@ -2,19 +2,13 @@ import asyncio
 from logging.config import fileConfig
 
 from sqlalchemy import pool
-from sqlalchemy.ext.asyncio import (
-    AsyncEngine,
-    create_async_engine
-)
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.engine import Connection
 
 from alembic import context
 
 from app.core.config import settings
-from app.v1.chats import Message
-from app.v1.rooms import Room, RoomMember, RoomInvitation
-from app.v1.users import User, SocialRegister
-from app.v1.profile import Profile
+from app.models import *
 
 DB_URL = settings.db_url_async
 
@@ -23,10 +17,7 @@ DB_URL = settings.db_url_async
 config = context.config
 
 # sets the sqlalchemy.url option in the alembic configuration dynamically
-config.set_main_option(
-    name="sqlalchemy.url",
-    value=DB_URL
-)
+config.set_main_option(name="sqlalchemy.url", value=DB_URL)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -38,6 +29,7 @@ if config.config_file_name is not None:
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
 from app.database.session import Base
+
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
@@ -75,13 +67,11 @@ def run_sync_migrations(connection: Connection) -> None:
     Runs the migrations using a given database connection.
     For sync
     """
-    context.configure(
-        connection=connection,
-        target_metadata=target_metadata
-    )
+    context.configure(connection=connection, target_metadata=target_metadata)
 
     with context.begin_transaction():
         context.run_migrations()
+
 
 async def run_async_migrations(engine: AsyncEngine) -> None:
     """
@@ -92,6 +82,7 @@ async def run_async_migrations(engine: AsyncEngine) -> None:
         await connection.run_sync(run_sync_migrations)
 
     await engine.dispose()
+
 
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode.
@@ -105,11 +96,7 @@ def run_migrations_online() -> None:
 
     # Creates an asynchronous engine if one isn't provided.
     if not engine:
-        engine = create_async_engine(
-            url=DB_URL,
-            future=True,
-            poolclass=pool.NullPool
-        )
+        engine = create_async_engine(url=DB_URL, future=True, poolclass=pool.NullPool)
 
     if isinstance(engine, AsyncEngine):
         # run the asynchronous migrations if the engine is asynchronous
