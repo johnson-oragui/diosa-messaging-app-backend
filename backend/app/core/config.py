@@ -1,11 +1,11 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from authlib.integrations.starlette_client import OAuth
 
 
 class Settings(BaseSettings):
     """
     Class to access env variables
     """
+
     mode: str
 
     db_url_sync: str
@@ -41,56 +41,16 @@ class Settings(BaseSettings):
     facebook_client_id: str
     facebook_client_secret: str
 
-    test: str
-
     celery_broker_url: str
     celery_broker_url_test: str
     celery_result_backend: str
     celery_result_backend_test: str
 
-    model_config: SettingsConfigDict = {
+    model_config: SettingsConfigDict = {  # type: ignore
         "env_file": ".env",
-        "case_sensitive": False
+        "case_sensitive": False,
     }
+
 
 # Initialize settings
-settings = Settings()  # noqa
-
-social_oauth = OAuth()
-
-social_oauth.register(
-    name="google",
-    client_id=settings.google_client_id,
-    client_secret=settings.google_client_secret,
-    server_metadata_url=settings.google_conf_url,
-    client_kwargs={
-        "scope": "openid email profile",
-        "access_type": "offline"
-    }
-)
-
-social_oauth.register(
-    name="facebook",
-    client_id=settings.facebook_client_id,
-    client_secret=settings.facebook_client_secret,
-    authorize_url='https://www.facebook.com/dialog/oauth',
-    authorize_params=None,
-    access_token_url='https://graph.facebook.com/v8.0/oauth/access_token',
-    access_token_params=None,
-    client_kwargs={'scope': 'email'},
-    userinfo_endpoint='https://graph.facebook.com/me?fields=id,name,email'
-)
-
-social_oauth.register(
-    name="github",
-    client_id=settings.github_client_id,
-    client_secret=settings.github_client_secret,
-    access_token_url='https://github.com/login/oauth/access_token',
-    access_token_params=None,
-    authorize_url='https://github.com/login/oauth/authorize',
-    authorize_params=None,
-    api_base_url='https://api.github.com/',
-    client_kwargs={
-        "scope": "profile user:email"
-    }
-)
+settings = Settings()  # type: ignore
