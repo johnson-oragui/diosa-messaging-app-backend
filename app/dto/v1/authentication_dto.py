@@ -52,6 +52,8 @@ def validate_password(password: str) -> None:
     """
     Validates password.
     """
+    if not password:
+        raise ValueError("password must be provided")
     # allowed special characters for password
     password_allowed = "!@#&-_,."
     not_allowed = "+="  # Original not_allowed string
