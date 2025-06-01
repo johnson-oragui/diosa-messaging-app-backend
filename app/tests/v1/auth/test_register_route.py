@@ -14,7 +14,9 @@ class TestRegisterRoute:
     """
 
     @pytest.mark.asyncio
-    async def test_a_register(self, client: AsyncClient, test_session: AsyncSession):
+    async def test_a_register(
+        self, client: AsyncClient, test_setup: None, test_get_session: AsyncSession
+    ):
         """
         Test successful register user route
         """
@@ -38,7 +40,7 @@ class TestRegisterRoute:
         assert data["message"] == "User already Registered"
         assert data.get("data", {})["email"] == "jayson@gtest.com"
 
-        await delete_user(test_session, "jayson@gtest.com")
+        await delete_user(test_get_session, "jayson@gtest.com")
 
     @pytest.mark.asyncio
     async def test_b_missing_email(self, client: AsyncClient):
