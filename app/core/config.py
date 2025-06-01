@@ -18,10 +18,11 @@ class Settings(BaseSettings):
     db_name: str
     db_schema: str
 
-    jwt_access_token_expire_minutes: int
-    jwt_refresh_token_expire_days: int
+    jwt_access_token_expiry: int
+    jwt_refresh_token_expiry: int
     jwt_algorithm: str
     secrets: str
+    jwt_secrets: str
     jwt_algorithm: str
 
     mail_port: int
