@@ -48,7 +48,7 @@ def validate_user_email(email: str) -> Optional[str]:
         raise ValueError(str(exc)) from exc
 
 
-def validate_password(password: str) -> None:
+def validate_password(password: str | None) -> None:
     """
     Validates password.
     """
@@ -88,7 +88,7 @@ class RegisterUserRequestDto(BaseModel):
     email: EmailStr = Field(examples=["johnson@gmail.com"])
 
     idempotency_key: Annotated[
-        str, StringConstraints(min_length=32, max_length=38, strip_whitespace=True)
+        str, StringConstraints(min_length=3, max_length=60, strip_whitespace=True)
     ] = Field(default=None, examples=["123456789012-1234-1234-1234-12345678"])
     password: Annotated[
         str, StringConstraints(min_length=8, max_length=64, strip_whitespace=True)
@@ -133,3 +133,74 @@ class RegisterOutputResponseDto(BaseModel):
         examples=["User Registered Successfully"],
     )
     data: UserBaseDto
+
+
+# ++++++++++++++++++++++ authenticate +++++++++++++++++++++++++++
+class AuthenticateUserRequestDto(BaseModel):
+    """
+    RegisterUserRequestDto
+    """
+
+    email: Optional[EmailStr] = Field(default=None, examples=["johnson@gmail.com"])
+
+    username: Optional[
+        Annotated[
+            str, StringConstraints(min_length=1, max_length=38, strip_whitespace=True)
+        ]
+    ] = Field(default=None, examples=["Johnson1234"])
+    password: Annotated[
+        str, StringConstraints(min_length=8, max_length=64, strip_whitespace=True)
+    ] = Field(examples=["Johnson1234#"])
+    session_id: Annotated[
+        str, StringConstraints(min_length=32, max_length=38, strip_whitespace=True)
+    ] = Field(examples=["123456789012-1234-1234-1234-12345678"])
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_password(cls, values: dict):
+        """
+        Validates fields
+        """
+        if isinstance(values, bytes):
+            values = json.loads(values)
+        password: str | None = values.get("password", None)
+
+        email: str | None = values.get("email", None)
+        username: str | None = values.get("username", None)
+
+        validate_password(password)
+        if (not username and not email) or (username and email):
+            raise ValueError("must provide either username or email")
+
+        if email:
+            values["email"] = validate_user_email(email.lower())
+        if username:
+            values["username"] = username.lower()
+
+        return values
+
+
+class AccessTokenDto(BaseModel):
+    """Access token dto"""
+
+    token: str = Field(examples=["ee23e23e2r.4r435t54t46t6yy5634444444"])
+    expire_at: int = Field(examples=[1787878787878782])
+
+
+class AuthenticationBaseDto(BaseModel):
+    """
+    Authentication Base dto
+    """
+
+    access_token: AccessTokenDto
+    user_data: UserBaseDto
+
+
+class AuthenticateUserResponseDto(BaseModel):
+    """
+    Authenicate User response
+    """
+
+    status_code: int = Field(default=200, examples=[200])
+    message: str = Field(default="Login success", examples=["Login success"])
+    data: AuthenticationBaseDto
