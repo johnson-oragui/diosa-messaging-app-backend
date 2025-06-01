@@ -1,12 +1,20 @@
-from typing import Optional
+"""
+User model module
+"""
+
+from typing import Optional, List
 import hashlib
 
 from passlib.context import CryptContext
 from sqlalchemy import Index
+from sqlalchemy.orm import mapped_column, Mapped, relationship
 
-from app.database.session import Base, ModelMixin, String, Mapped, mapped_column
 
-from app.base.enums import user_online_status_enum, user_status_enum
+from app.database.session import Base, ModelMixin, String
+from app.models.enums import user_online_status_enum, user_status_enum
+
+
+from app.models.user_session import UserSession
 
 password_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -39,6 +47,14 @@ class User(ModelMixin, Base):
     __table_args__ = (
         Index("uq_chat_users_idempotency_key", idempotency_key, unique=True),
     )
+
+    # ---------------------------- relationships ---------------------
+
+    sessions: Mapped[List["UserSession"]] = relationship(
+        "UserSession", back_populates="user", cascade="all"
+    )
+
+    # ------------------ methods ------------------
 
     def set_password(self, plain_password: str) -> None:
         """
