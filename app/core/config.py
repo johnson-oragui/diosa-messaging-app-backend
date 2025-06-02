@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     secrets: str
     jwt_secrets: str
     jwt_algorithm: str
+    jwt_issuer: str
+    jwt_audience: str
 
     mail_port: int
     mail_username: str

@@ -4,13 +4,12 @@ AuthenticationService module
 
 import typing
 from uuid import uuid4
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
 
 from fastapi import status, HTTPException, Request, Response
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from asyncpg.exceptions import IntegrityConstraintViolationError
-from jose import jwt
 
 from app.dto.v1.authentication_dto import (
     RegisterUserRequestDto,
@@ -20,6 +19,10 @@ from app.dto.v1.authentication_dto import (
     AuthenticationBaseDto,
     AccessTokenDto,
     AuthenticateUserResponseDto,
+    LogoutResponseDto,
+    RefreshTokenResponseDto,
+    PasswordChangeRequestDto,
+    PasswordChangeResponseDto,
 )
 from app.repository.v1.user_repository import (
     user_repository,
@@ -29,6 +32,7 @@ from app.repository.v1.user_session_repository import (
 )
 from app.utils.task_logger import create_logger
 from app.core.config import settings
+from app.core.security import generate_token
 
 logger = create_logger(":: Authentication Service ::")
 
@@ -111,12 +115,13 @@ class AuthenticationService:
         # user_agent
         user_agent = request.headers.get("user-agent", "")
         # location
+        # TODO: add util function to fetch location
         location = "unknown"
         # jti
         new_jti = str(uuid4())
 
         # access token
-        token = await self.generate_token(
+        token = await generate_token(
             user_agent=user_agent,
             user_id=user_exists.id,
             jti=new_jti,
@@ -135,7 +140,7 @@ class AuthenticationService:
         )
 
         # refresh token
-        refresh_token = await self.generate_token(
+        refresh_token = await generate_token(
             user_agent=user_agent,
             user_id=user_exists.id,
             jti=new_jti,
@@ -168,45 +173,110 @@ class AuthenticationService:
 
         return AuthenticateUserResponseDto(data=authentication_base_dto)
 
-    async def generate_token(
-        self,
-        session_id: str,
-        user_id: str,
-        jti: str,
-        user_agent: str,
-        ip_address: str,
-        location: str,
-        token_type: str = "access",
-    ) -> str:
+    async def logout(
+        self, request: Request, session: AsyncSession
+    ) -> typing.Union[LogoutResponseDto, None]:
         """
-        Generates jwt token
-        """
-        now = datetime.now(timezone.utc)
-        expire = now
-        if token_type == "access":
-            expire = now + timedelta(days=settings.jwt_access_token_expiry)
-        elif token_type == "refresh":
-            expire = now + timedelta(days=settings.jwt_refresh_token_expiry)
-        else:
-            raise TypeError("token type can only be one of access or refresh")
-        claims = {
-            "user_id": user_id,
-            "jti": jti,
-            "session_id": session_id,
-            "user_agent": user_agent,
-            "token_type": token_type,
-            "ip_address": ip_address,
-            "location": location,
-            "exp": expire,
-            "iss": "chat.johnson.com",
-            "aud": "1234567890.chat.johnson.com",
-        }
+        Logs out a user.
 
-        token: str = jwt.encode(
-            claims=claims, key=settings.jwt_secrets, algorithm=settings.jwt_algorithm
+        Args:
+            request(Request): The request object.
+            session (AsyncSession): The database async session
+        Returns:
+            response
+        """
+        session_id = request.state.claims.get("session_id")
+        await user_session_repository.log_session_out(session_id, session=session)
+        return LogoutResponseDto()
+
+    async def refresh_token(
+        self, request: Request, session: AsyncSession, response: Response
+    ) -> typing.Union[RefreshTokenResponseDto, None]:
+        """
+        Refreshes user tokens.
+
+        Args:
+            request(Request): The request object.
+            session (AsyncSession): The database async session
+        Returns:
+            response
+        """
+        claims = request.state.claims
+        jti = claims.get("jti")
+        session_id = claims.get("session_id")
+        user_id = claims.get("user_id")
+        user_agent = claims.get("user_agent")
+        location = claims.get("location")
+        ip_address = claims.get("ip_address")
+
+        if user_agent != request.headers.get("user-agent"):
+            raise HTTPException(status_code=401, detail="Unauthorized access")
+
+        user_sessio_exists = await user_session_repository.fetch(
+            user_id=user_id,
+            jti=jti,
+            session_id=session_id,
+            is_logged_out=False,
+            session=session,
+        )
+        if not user_sessio_exists:
+            raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+        new_jti = str(uuid4())
+
+        new_access_token = await generate_token(
+            session_id=session_id,
+            user_id=user_id,
+            jti=new_jti,
+            user_agent=user_agent,
+            token_type="access",
+            location=location,
+            ip_address=ip_address,
+        )
+        new_refresh_token = await generate_token(
+            session_id=session_id,
+            user_id=user_id,
+            jti=new_jti,
+            user_agent=user_agent,
+            token_type="refresh",
+            location=location,
+            ip_address=ip_address,
         )
 
-        return token
+        await user_session_repository.update_jti(
+            session=session, session_id=session_id, jti=new_jti
+        )
+
+        access_token_dto = AccessTokenDto(
+            token=new_access_token,
+            expire_at=int(
+                (
+                    datetime.now() + timedelta(days=settings.jwt_access_token_expiry)
+                ).timestamp()
+            ),
+        )
+        response.headers["X-REFRESH-TOKEN"] = new_refresh_token
+        return RefreshTokenResponseDto(data=access_token_dto)
+
+    async def change_password(
+        self, request: Request, schema: PasswordChangeRequestDto, session: AsyncSession
+    ) -> typing.Union[PasswordChangeResponseDto, None]:
+        """
+        Password change
+        """
+        claims: dict = request.state.claims
+
+        is_updated = await user_repository.update_password(
+            session=session,
+            user_id=claims.get("user_id", ""),
+            new_password=schema.new_password,
+            old_password=schema.old_password,
+        )
+
+        if not is_updated:
+            raise HTTPException(status_code=400, detail="Invalid credentials")
+
+        return PasswordChangeResponseDto()
 
 
 authentication_service = AuthenticationService()

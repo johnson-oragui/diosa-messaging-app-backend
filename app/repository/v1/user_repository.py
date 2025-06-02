@@ -149,9 +149,12 @@ class UserRepository:
             User(object): The user instance or none
         """
         query = sa.select(User).where(
-            sa.or_(User.username == username, User.email == email),
             User.is_deleted.is_(False),
         )
+        if email:
+            query = query.where(self.model.email == email)
+        if username:
+            query = query.where(self.model.username == username)
 
         return (await session.execute(query)).scalar_one_or_none()
 
@@ -176,21 +179,33 @@ class UserRepository:
         await session.execute(query)
 
     async def update_password(
-        self, user: User, new_password: str, session: AsyncSession
-    ) -> None:
+        self,
+        new_password: str,
+        session: AsyncSession,
+        old_password: str,
+        user_id: str,
+    ) -> bool:
         """
         Updates user password
 
         Args:
-            user(User). The user object.
-            new_password(str): The new password
+            new_password(str). The new password to update.
+            old_password(str). The old password to change.
+            user_id(str). The user id.
+            session(AsyncSession): The database async session object
         Returns:
             None
         """
+        user = await self.fetch_by_id(user_id=user_id, session=session)
+        if not user:
+            return False
+        if not user.verify_password(old_password):
+            return False
         user.set_password(new_password)
         session.add(user)
         await session.commit()
         await session.refresh(user)
+        return True
 
 
 user_repository = UserRepository()
