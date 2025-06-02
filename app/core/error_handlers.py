@@ -80,7 +80,13 @@ async def validation_exception_handler(
     """
     error = exc.errors()[0] if exc.errors() else "No Error message to extract from"
 
-    sensitive_words = ["password", "confirm_password", "secret_token"]
+    sensitive_words = [
+        "password",
+        "confirm_password",
+        "secret_token",
+        "new_password",
+        "old_password",
+    ]
 
     if isinstance(error, dict) and len(error) > 0:
 
