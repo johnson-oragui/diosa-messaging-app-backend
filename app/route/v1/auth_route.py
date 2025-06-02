@@ -15,6 +15,8 @@ from app.dto.v1.authentication_dto import (
     AuthenticateUserResponseDto,
     LogoutResponseDto,
     RefreshTokenResponseDto,
+    PasswordChangeRequestDto,
+    PasswordChangeResponseDto,
 )
 from app.database.session import get_async_session
 from app.core.security import validate_logout_status, get_refresh_token_header
@@ -129,4 +131,32 @@ async def refresh_tokens(
     """
     return await authentication_service.refresh_token(
         request=request, session=session, response=response
+    )
+
+
+@auth_router.post(
+    "/change-password",
+    status_code=status.HTTP_200_OK,
+    responses=responses,
+    response_model=PasswordChangeResponseDto,
+    dependencies=[Depends(validate_logout_status)],
+)
+async def change_password(
+    request: Request,
+    session: typing.Annotated[AsyncSession, Depends(get_async_session)],
+    schema: PasswordChangeRequestDto,
+) -> typing.Union[PasswordChangeResponseDto, None]:
+    """
+    Changes passwords.
+
+    Return:
+        Success message upon successful change
+    Raises:
+        401 Unauthorized.
+        422 Validation Error.
+        500 Internal server error
+        409 conflict
+    """
+    return await authentication_service.change_password(
+        request=request, session=session, schema=schema
     )
