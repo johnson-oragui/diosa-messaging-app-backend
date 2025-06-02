@@ -14,9 +14,10 @@ from app.dto.v1.authentication_dto import (
     AuthenticateUserRequestDto,
     AuthenticateUserResponseDto,
     LogoutResponseDto,
+    RefreshTokenResponseDto,
 )
 from app.database.session import get_async_session
-from app.core.security import validate_logout_status
+from app.core.security import validate_logout_status, get_refresh_token_header
 
 logger = create_logger("Auth Route")
 
@@ -101,3 +102,31 @@ async def logout(
         409 conflict
     """
     return await authentication_service.logout(request=request, session=session)
+
+
+@auth_router.post(
+    "/refresh-tokens",
+    status_code=status.HTTP_200_OK,
+    responses=responses,
+    response_model=RefreshTokenResponseDto,
+    dependencies=[Depends(get_refresh_token_header)],
+)
+async def refresh_tokens(
+    request: Request,
+    response: Response,
+    session: typing.Annotated[AsyncSession, Depends(get_async_session)],
+) -> typing.Union[RefreshTokenResponseDto, None]:
+    """
+    Refreshes tokens.
+
+    Return:
+        Success message upon successful refresh
+    Raises:
+        401 Unauthorized.
+        422 Validation Error.
+        500 Internal server error
+        409 conflict
+    """
+    return await authentication_service.refresh_token(
+        request=request, session=session, response=response
+    )
