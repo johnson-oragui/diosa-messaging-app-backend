@@ -4,13 +4,12 @@ AuthenticationService module
 
 import typing
 from uuid import uuid4
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
 
 from fastapi import status, HTTPException, Request, Response
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from asyncpg.exceptions import IntegrityConstraintViolationError
-from jose import jwt
 
 from app.dto.v1.authentication_dto import (
     RegisterUserRequestDto,
@@ -20,6 +19,7 @@ from app.dto.v1.authentication_dto import (
     AuthenticationBaseDto,
     AccessTokenDto,
     AuthenticateUserResponseDto,
+    LogoutResponseDto,
 )
 from app.repository.v1.user_repository import (
     user_repository,
@@ -29,6 +29,7 @@ from app.repository.v1.user_session_repository import (
 )
 from app.utils.task_logger import create_logger
 from app.core.config import settings
+from app.core.security import generate_token
 
 logger = create_logger(":: Authentication Service ::")
 
@@ -116,7 +117,7 @@ class AuthenticationService:
         new_jti = str(uuid4())
 
         # access token
-        token = await self.generate_token(
+        token = await generate_token(
             user_agent=user_agent,
             user_id=user_exists.id,
             jti=new_jti,
@@ -135,7 +136,7 @@ class AuthenticationService:
         )
 
         # refresh token
-        refresh_token = await self.generate_token(
+        refresh_token = await generate_token(
             user_agent=user_agent,
             user_id=user_exists.id,
             jti=new_jti,
@@ -168,45 +169,15 @@ class AuthenticationService:
 
         return AuthenticateUserResponseDto(data=authentication_base_dto)
 
-    async def generate_token(
-        self,
-        session_id: str,
-        user_id: str,
-        jti: str,
-        user_agent: str,
-        ip_address: str,
-        location: str,
-        token_type: str = "access",
-    ) -> str:
+    async def logout(
+        self, request: Request, session: AsyncSession
+    ) -> typing.Union[LogoutResponseDto, None]:
         """
-        Generates jwt token
+        Logs out a user.
         """
-        now = datetime.now(timezone.utc)
-        expire = now
-        if token_type == "access":
-            expire = now + timedelta(days=settings.jwt_access_token_expiry)
-        elif token_type == "refresh":
-            expire = now + timedelta(days=settings.jwt_refresh_token_expiry)
-        else:
-            raise TypeError("token type can only be one of access or refresh")
-        claims = {
-            "user_id": user_id,
-            "jti": jti,
-            "session_id": session_id,
-            "user_agent": user_agent,
-            "token_type": token_type,
-            "ip_address": ip_address,
-            "location": location,
-            "exp": expire,
-            "iss": "chat.johnson.com",
-            "aud": "1234567890.chat.johnson.com",
-        }
-
-        token: str = jwt.encode(
-            claims=claims, key=settings.jwt_secrets, algorithm=settings.jwt_algorithm
-        )
-
-        return token
+        session_id = request.state.claims.get("session_id")
+        await user_session_repository.log_session_out(session_id, session=session)
+        return LogoutResponseDto()
 
 
 authentication_service = AuthenticationService()
