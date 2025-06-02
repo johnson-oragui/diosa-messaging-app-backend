@@ -23,11 +23,11 @@ class UserSession(ModelMixin, Base):
     user_id: Mapped[Optional[str]] = mapped_column(
         ForeignKey("chat_users.id", ondelete="SET NULL"), index=True, nullable=True
     )
-    session_id: Mapped[str] = mapped_column(index=True)
+    session_id: Mapped[str] = mapped_column(index=True, unique=True)
     is_logged_out: Mapped[bool] = mapped_column(
         default=False, server_default="FALSE", index=True
     )
-    jti: Mapped[str] = mapped_column()
+    jti: Mapped[str] = mapped_column(unique=True)
     location: Mapped[str] = mapped_column()
     ip_address: Mapped[str] = mapped_column()
     logged_out_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
