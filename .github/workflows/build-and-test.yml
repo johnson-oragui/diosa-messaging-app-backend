@@ -2,7 +2,7 @@ name: CHAT CI
 
 on:
   pull_request:
-    branches: ['main']
+    branches: ['main', 'dev']
     types: [opened, synchronize, reopened]
     paths-ignore:
       - 'README.md'
