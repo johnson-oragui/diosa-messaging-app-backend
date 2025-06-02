@@ -6,7 +6,7 @@ import typing
 from datetime import datetime, timezone, timedelta
 
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi import Depends, Request, HTTPException
+from fastapi import Depends, Request, HTTPException, Header
 from jose import jwt, JWTError
 import sqlalchemy as sa
 
@@ -80,6 +80,26 @@ async def validate_logout_status(
 
     if not is_not_logged_in:
         raise HTTPException(status_code=401, detail="session expired")
+
+    if claims.get("jti") != is_not_logged_in.jti:
+        raise HTTPException(status_code=401, detail="Invalid or expired session")
+
+    request.state.claims = claims
+    request.state.current_user = claims.get("user_id")
+
+
+async def get_refresh_token_header(
+    request: Request,
+    x_refresh_token: str = Header(title="X-REFRESH-TOKEN"),
+) -> None:
+    """
+    Retrieves refresh token from header
+    """
+    # refresh_token_header = request.headers.get("x-refresh-token", None) or ""
+    if not x_refresh_token:
+        raise HTTPException(status_code=401, detail="Missing X-REFRESH-TOKEN Header")
+
+    claims = await verify_jwt_tokens(x_refresh_token, "refresh")
 
     request.state.claims = claims
     request.state.current_user = claims.get("user_id")
@@ -162,5 +182,5 @@ async def verify_jwt_tokens(
     except JWTError as exc:
         logger.error("Error verifying jwt token: %s", str(exc))
         raise HTTPException(
-            status_code=401, detail="JWT token validation failed"
+            status_code=401, detail=f"{token_type} token validation failed"
         ) from exc

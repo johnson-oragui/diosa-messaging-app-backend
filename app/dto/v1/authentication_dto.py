@@ -215,3 +215,16 @@ class LogoutResponseDto(BaseModel):
     status_code: int = Field(default=200, examples=[200])
     message: str = Field(default="Logout success", examples=["Logout success"])
     data: dict = Field(default={}, examples=[{}])
+
+
+# +++++++++++++++++++++++++== refresh token ++++++++++++++++++++++++++++++++++
+class RefreshTokenResponseDto(BaseModel):
+    """
+    Refresh token dto
+    """
+
+    status_code: int = Field(default=200, examples=[200])
+    message: str = Field(
+        default="Tokens refresh successful", examples=["Tokens refresh successful"]
+    )
+    data: AccessTokenDto
