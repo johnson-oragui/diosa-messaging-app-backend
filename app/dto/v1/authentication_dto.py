@@ -228,3 +228,54 @@ class RefreshTokenResponseDto(BaseModel):
         default="Tokens refresh successful", examples=["Tokens refresh successful"]
     )
     data: AccessTokenDto
+
+
+# ++++++++++++++++++++++++++++++= change password ++++++++++++++++++++++++++++++++++
+class PasswordChangeRequestDto(BaseModel):
+    """
+    Password change request dto
+    """
+
+    old_password: Annotated[
+        str, StringConstraints(min_length=8, strip_whitespace=True)
+    ] = Field(examples=["Johnson1234#"])
+    new_password: Annotated[
+        str, StringConstraints(min_length=8, strip_whitespace=True)
+    ] = Field(examples=["Johnson12345#"])
+    confirm_password: Annotated[
+        str, StringConstraints(min_length=8, strip_whitespace=True)
+    ] = Field(examples=["Johnson12345#"])
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_password(cls, values: dict) -> dict:
+        """
+        Validates fields
+        """
+        if isinstance(values, bytes):
+            values = json.loads(values)
+        old_password: str | None = values.get("old_password", None)
+        new_password: str | None = values.get("new_password", None)
+        confirm_password: str | None = values.get("confirm_password", None)
+
+        if new_password != confirm_password:
+            raise ValueError("confirm_password and new_password must match")
+
+        if old_password == new_password:
+            raise ValueError("new_password and old_password must not be same")
+
+        validate_password(new_password)
+
+        return values
+
+
+class PasswordChangeResponseDto(BaseModel):
+    """
+    Password change
+    """
+
+    status_code: int = Field(default=200, examples=[200])
+    message: str = Field(
+        default="Password update successful", examples=["Password update successful"]
+    )
+    data: dict = Field(default={}, examples=[{}])
