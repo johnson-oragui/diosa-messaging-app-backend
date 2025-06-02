@@ -21,6 +21,8 @@ from app.dto.v1.authentication_dto import (
     AuthenticateUserResponseDto,
     LogoutResponseDto,
     RefreshTokenResponseDto,
+    PasswordChangeRequestDto,
+    PasswordChangeResponseDto,
 )
 from app.repository.v1.user_repository import (
     user_repository,
@@ -113,6 +115,7 @@ class AuthenticationService:
         # user_agent
         user_agent = request.headers.get("user-agent", "")
         # location
+        # TODO: add util function to fetch location
         location = "unknown"
         # jti
         new_jti = str(uuid4())
@@ -254,6 +257,26 @@ class AuthenticationService:
         )
         response.headers["X-REFRESH-TOKEN"] = new_refresh_token
         return RefreshTokenResponseDto(data=access_token_dto)
+
+    async def change_password(
+        self, request: Request, schema: PasswordChangeRequestDto, session: AsyncSession
+    ) -> typing.Union[PasswordChangeResponseDto, None]:
+        """
+        Password change
+        """
+        claims: dict = request.state.claims
+
+        is_updated = await user_repository.update_password(
+            session=session,
+            user_id=claims.get("user_id", ""),
+            new_password=schema.new_password,
+            old_password=schema.old_password,
+        )
+
+        if not is_updated:
+            raise HTTPException(status_code=400, detail="Invalid credentials")
+
+        return PasswordChangeResponseDto()
 
 
 authentication_service = AuthenticationService()
