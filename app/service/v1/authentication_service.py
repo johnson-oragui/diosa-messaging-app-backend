@@ -20,6 +20,7 @@ from app.dto.v1.authentication_dto import (
     AccessTokenDto,
     AuthenticateUserResponseDto,
     LogoutResponseDto,
+    RefreshTokenResponseDto,
 )
 from app.repository.v1.user_repository import (
     user_repository,
@@ -174,10 +175,85 @@ class AuthenticationService:
     ) -> typing.Union[LogoutResponseDto, None]:
         """
         Logs out a user.
+
+        Args:
+            request(Request): The request object.
+            session (AsyncSession): The database async session
+        Returns:
+            response
         """
         session_id = request.state.claims.get("session_id")
         await user_session_repository.log_session_out(session_id, session=session)
         return LogoutResponseDto()
+
+    async def refresh_token(
+        self, request: Request, session: AsyncSession, response: Response
+    ) -> typing.Union[RefreshTokenResponseDto, None]:
+        """
+        Refreshes user tokens.
+
+        Args:
+            request(Request): The request object.
+            session (AsyncSession): The database async session
+        Returns:
+            response
+        """
+        claims = request.state.claims
+        jti = claims.get("jti")
+        session_id = claims.get("session_id")
+        user_id = claims.get("user_id")
+        user_agent = claims.get("user_agent")
+        location = claims.get("location")
+        ip_address = claims.get("ip_address")
+
+        if user_agent != request.headers.get("user-agent"):
+            raise HTTPException(status_code=401, detail="Unauthorized access")
+
+        user_sessio_exists = await user_session_repository.fetch(
+            user_id=user_id,
+            jti=jti,
+            session_id=session_id,
+            is_logged_out=False,
+            session=session,
+        )
+        if not user_sessio_exists:
+            raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+        new_jti = str(uuid4())
+
+        new_access_token = await generate_token(
+            session_id=session_id,
+            user_id=user_id,
+            jti=new_jti,
+            user_agent=user_agent,
+            token_type="access",
+            location=location,
+            ip_address=ip_address,
+        )
+        new_refresh_token = await generate_token(
+            session_id=session_id,
+            user_id=user_id,
+            jti=new_jti,
+            user_agent=user_agent,
+            token_type="refresh",
+            location=location,
+            ip_address=ip_address,
+        )
+
+        await user_session_repository.update_jti(
+            session=session, session_id=session_id, jti=new_jti
+        )
+
+        access_token_dto = AccessTokenDto(
+            token=new_access_token,
+            expire_at=int(
+                (
+                    datetime.now() + timedelta(days=settings.jwt_access_token_expiry)
+                ).timestamp()
+            ),
+        )
+        response.headers["X-REFRESH-TOKEN"] = new_refresh_token
+        return RefreshTokenResponseDto(data=access_token_dto)
 
 
 authentication_service = AuthenticationService()
