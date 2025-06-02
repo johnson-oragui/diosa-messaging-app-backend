@@ -114,7 +114,7 @@ class UserSessionRepository:
         query = (
             sa.update(self.model)
             .where(self.model.session_id == session_id)
-            .values(is_logged_out=True)
+            .values(is_logged_out=True, logged_out_at=sa.func.now())
         )
 
         await session.execute(query)

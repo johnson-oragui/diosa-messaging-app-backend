@@ -204,3 +204,14 @@ class AuthenticateUserResponseDto(BaseModel):
     status_code: int = Field(default=200, examples=[200])
     message: str = Field(default="Login success", examples=["Login success"])
     data: AuthenticationBaseDto
+
+
+# +++++++++++++++++++++++++== logout ++++++++++++++++++++++++++++++++++
+class LogoutResponseDto(BaseModel):
+    """
+    Logout response
+    """
+
+    status_code: int = Field(default=200, examples=[200])
+    message: str = Field(default="Logout success", examples=["Logout success"])
+    data: dict = Field(default={}, examples=[{}])
