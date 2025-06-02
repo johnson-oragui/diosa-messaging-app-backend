@@ -13,8 +13,10 @@ from app.dto.v1.authentication_dto import (
     RegisterOutputResponseDto,
     AuthenticateUserRequestDto,
     AuthenticateUserResponseDto,
+    LogoutResponseDto,
 )
 from app.database.session import get_async_session
+from app.core.security import validate_logout_status
 
 logger = create_logger("Auth Route")
 
@@ -74,3 +76,28 @@ async def authenticate(
     return await authentication_service.authenticate(
         schema=schema, request=request, response=response, session=session
     )
+
+
+@auth_router.post(
+    "/logout",
+    status_code=status.HTTP_200_OK,
+    responses=responses,
+    response_model=LogoutResponseDto,
+    dependencies=[Depends(validate_logout_status)],
+)
+async def logout(
+    request: Request,
+    session: typing.Annotated[AsyncSession, Depends(get_async_session)],
+) -> typing.Union[LogoutResponseDto, None]:
+    """
+    Logs out a user.
+
+    Return:
+        Success message upon successful logout
+    Raises:
+        401 Unauthorized.
+        422 Validation Error.
+        500 Internal server error
+        409 conflict
+    """
+    return await authentication_service.logout(request=request, session=session)
