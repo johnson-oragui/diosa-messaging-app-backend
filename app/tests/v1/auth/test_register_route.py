@@ -2,6 +2,7 @@
 Register Test module
 """
 
+from unittest.mock import patch
 from httpx import AsyncClient
 import pytest
 
@@ -29,18 +30,23 @@ class TestRegisterRoute:
         assert data["status_code"] == 201
         assert data["message"] == "User Registered Successfully"
         assert data.get("data", {})["email"] == "jayson@gtest.com"
+        with patch(
+            "app.service.v1.authentication_service.AuthenticationService.send_email",
+            return_value=None,
+        ):
+            response = await client.post(
+                url="/api/v1/auth/register", json=register_input
+            )
 
-        response = await client.post(url="/api/v1/auth/register", json=register_input)
+            assert response.status_code == 201
 
-        assert response.status_code == 201
+            data: dict = response.json()
 
-        data: dict = response.json()
+            assert data["status_code"] == 201
+            assert data["message"] == "User already Registered"
+            assert data.get("data", {})["email"] == "jayson@gtest.com"
 
-        assert data["status_code"] == 201
-        assert data["message"] == "User already Registered"
-        assert data.get("data", {})["email"] == "jayson@gtest.com"
-
-        await delete_user(test_get_session, "jayson@gtest.com")
+            await delete_user(test_get_session, "jayson@gtest.com")
 
     @pytest.mark.asyncio
     async def test_b_missing_email(self, client: AsyncClient):

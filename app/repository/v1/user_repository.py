@@ -207,5 +207,27 @@ class UserRepository:
         await session.refresh(user)
         return True
 
+    async def set_new_password(
+        self,
+        new_password: str,
+        session: AsyncSession,
+        user: User,
+    ) -> bool:
+        """
+        Updates user password
+
+        Args:
+            new_password(str). The new password to update.
+            user(User). The current user.
+            session(AsyncSession): The database async session object
+        Returns:
+            None
+        """
+        user.set_password(new_password)
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+        return True
+
 
 user_repository = UserRepository()

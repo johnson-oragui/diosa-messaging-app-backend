@@ -1,5 +1,5 @@
 """
-Register Test module
+Password change Test module
 """
 
 from httpx import AsyncClient
