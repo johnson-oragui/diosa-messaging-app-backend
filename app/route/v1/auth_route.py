@@ -17,6 +17,10 @@ from app.dto.v1.authentication_dto import (
     RefreshTokenResponseDto,
     PasswordChangeRequestDto,
     PasswordChangeResponseDto,
+    PasswordResetInitRequestDto,
+    PasswordResetInitResponseDto,
+    PasswordResetRequestDto,
+    PasswordResetResponseDto,
 )
 from app.database.session import get_async_session
 from app.core.security import validate_logout_status, get_refresh_token_header
@@ -160,3 +164,55 @@ async def change_password(
     return await authentication_service.change_password(
         request=request, session=session, schema=schema
     )
+
+
+@auth_router.post(
+    "/password-reset-init",
+    status_code=status.HTTP_200_OK,
+    responses=responses,
+    response_model=PasswordResetInitResponseDto,
+)
+async def initiate_password_reset(
+    _: Request,
+    session: typing.Annotated[AsyncSession, Depends(get_async_session)],
+    schema: PasswordResetInitRequestDto,
+) -> typing.Union[PasswordResetInitResponseDto, None]:
+    """
+    Initiates password  reset.
+
+    Return:
+        Success message upon successful change
+    Raises:
+        401 Unauthorized.
+        422 Validation Error.
+        500 Internal server error
+        409 conflict
+    """
+    return await authentication_service.initiate_reset_password(
+        session=session, schema=schema
+    )
+
+
+@auth_router.post(
+    "/password-reset",
+    status_code=status.HTTP_200_OK,
+    responses=responses,
+    response_model=PasswordResetResponseDto,
+)
+async def password_reset(
+    _: Request,
+    session: typing.Annotated[AsyncSession, Depends(get_async_session)],
+    schema: PasswordResetRequestDto,
+) -> typing.Union[PasswordResetResponseDto, None]:
+    """
+    Resets password.
+
+    Return:
+        Success message upon successful change
+    Raises:
+        401 Unauthorized.
+        422 Validation Error.
+        500 Internal server error
+        409 conflict
+    """
+    return await authentication_service.reset_password(session=session, schema=schema)
