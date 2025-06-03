@@ -371,6 +371,7 @@ class AuthenticationService:
             "template_name": "password-reset-success.html",
         }
         await self.send_email(context)
+        await redis_async.delete(key)
 
         return PasswordResetResponseDto()
 
