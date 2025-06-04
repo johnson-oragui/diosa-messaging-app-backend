@@ -2,6 +2,7 @@
 Test refresh token module
 """
 
+from unittest.mock import patch
 import pytest
 from httpx import AsyncClient
 
@@ -42,10 +43,26 @@ class TestRefreshTokens:
             "session_id": "000000000000-0000-0100-0000-01010001",
         }
         # register
-        response = await client.post(
-            url="/api/v1/auth/register", json=login_register_input
-        )
-        assert response.status_code == 201
+        with patch(
+            "app.service.v1.authentication_service.AuthenticationService.send_email",
+            return_value=None,
+        ):
+            with patch(
+                "app.service.v1.authentication_service.AuthenticationService.generate_six_digit_code",
+                return_value="123456",
+            ):
+                response = await client.post(
+                    url="/api/v1/auth/register", json=login_register_input
+                )
+                assert response.status_code == 201
+
+                await client.patch(
+                    url="/api/v1/auth/verify-account",
+                    json={
+                        "email": login_register_input.get("email"),
+                        "code": "123456",
+                    },
+                )
 
         # login
         response = await client.post(url="/api/v1/auth/login", json=login_payload)
@@ -81,77 +98,95 @@ class TestRefreshTokens:
             "session_id": "000000000000-0000-0100-0000-01011001",
         }
         # register
-        response = await client.post(
-            url="/api/v1/auth/register", json=login_register_input
-        )
-        assert response.status_code == 201
+        with patch(
+            "app.service.v1.authentication_service.AuthenticationService.generate_six_digit_code",
+            return_value="123456",
+        ):
+            with patch(
+                "app.service.v1.authentication_service.AuthenticationService.send_email",
+                return_value=None,
+            ):
+                response = await client.post(
+                    url="/api/v1/auth/register", json=login_register_input
+                )
+                assert response.status_code == 201
 
-        # login
-        login_response = await client.post(url="/api/v1/auth/login", json=login_payload)
+                await client.patch(
+                    url="/api/v1/auth/verify-account",
+                    json={
+                        "email": login_register_input.get("email"),
+                        "code": "123456",
+                    },
+                )
 
-        assert login_response.status_code == 200
+                # login
+                login_response = await client.post(
+                    url="/api/v1/auth/login", json=login_payload
+                )
 
-        data: dict = login_response.json()
+                assert login_response.status_code == 200
 
-        # get access token
-        old_access_token = data["data"]["access_token"]["token"]
-        # get refresh token
-        refresh_token = login_response.headers.get("x-refresh-token")
+                data: dict = login_response.json()
 
-        # refresh tokens
-        # should return 200
-        refresh_response = await client.post(
-            url="/api/v1/auth/refresh-tokens",
-            headers={"X-REFRESH-TOKEN": refresh_token},
-        )
+                # get access token
+                old_access_token = data["data"]["access_token"]["token"]
+                # get refresh token
+                refresh_token = login_response.headers.get("x-refresh-token")
 
-        assert refresh_response.status_code == 200
+                # refresh tokens
+                # should return 200
+                refresh_response = await client.post(
+                    url="/api/v1/auth/refresh-tokens",
+                    headers={"X-REFRESH-TOKEN": refresh_token},
+                )
 
-        data: dict = refresh_response.json()
+                assert refresh_response.status_code == 200
 
-        assert data["message"] == "Tokens refresh successful"
-        # get new access token
-        new_access_token = data["data"]["token"]
+                data: dict = refresh_response.json()
 
-        # get refresh token
-        new_refresh_token = refresh_response.headers.get("x-refresh-token")
+                assert data["message"] == "Tokens refresh successful"
+                # get new access token
+                new_access_token = data["data"]["token"]
 
-        # access logout route with old access token
-        # should return 401
-        logout_response = await client.post(
-            url="/api/v1/auth/logout",
-            headers={"Authorization": f"Bearer {old_access_token}"},
-        )
+                # get refresh token
+                new_refresh_token = refresh_response.headers.get("x-refresh-token")
 
-        assert logout_response.status_code == 401
+                # access logout route with old access token
+                # should return 401
+                logout_response = await client.post(
+                    url="/api/v1/auth/logout",
+                    headers={"Authorization": f"Bearer {old_access_token}"},
+                )
 
-        data: dict = logout_response.json()
+                assert logout_response.status_code == 401
 
-        assert data["status_code"] == 401
-        assert data["message"] == "Invalid or expired session"
+                data: dict = logout_response.json()
 
-        # use new access token to access logout route
-        # should revoke access and refresh tokens successfully
-        logout2_response = await client.post(
-            url="/api/v1/auth/logout",
-            headers={"Authorization": f"Bearer {new_access_token}"},
-        )
+                assert data["status_code"] == 401
+                assert data["message"] == "Invalid or expired session"
 
-        assert logout2_response.status_code == 200
+                # use new access token to access logout route
+                # should revoke access and refresh tokens successfully
+                logout2_response = await client.post(
+                    url="/api/v1/auth/logout",
+                    headers={"Authorization": f"Bearer {new_access_token}"},
+                )
 
-        data: dict = logout2_response.json()
+                assert logout2_response.status_code == 200
 
-        assert data["status_code"] == 200
+                data: dict = logout2_response.json()
 
-        # refresh tokens with revoked new_refresh_token due to logout
-        # should return 401
-        response = await client.post(
-            url="/api/v1/auth/refresh-tokens",
-            headers={"X-REFRESH-TOKEN": new_refresh_token},
-        )
+                assert data["status_code"] == 200
 
-        assert response.status_code == 401
+                # refresh tokens with revoked new_refresh_token due to logout
+                # should return 401
+                response = await client.post(
+                    url="/api/v1/auth/refresh-tokens",
+                    headers={"X-REFRESH-TOKEN": new_refresh_token},
+                )
 
-        data: dict = response.json()
+                assert response.status_code == 401
 
-        assert data["message"] == "Invalid refresh token"
+                data: dict = response.json()
+
+                assert data["message"] == "Invalid refresh token"

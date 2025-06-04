@@ -2,6 +2,7 @@
 Register Test module
 """
 
+from unittest.mock import patch
 from httpx import AsyncClient
 import pytest
 
@@ -20,27 +21,38 @@ class TestRegisterRoute:
         """
         Test successful register user route
         """
-        response = await client.post(url="/api/v1/auth/register", json=register_input)
+        with patch(
+            "app.service.v1.authentication_service.AuthenticationService.send_email",
+            return_value=None,
+        ):
+            response = await client.post(
+                url="/api/v1/auth/register", json=register_input
+            )
 
-        assert response.status_code == 201
+            assert response.status_code == 201
 
-        data: dict = response.json()
+            data: dict = response.json()
 
-        assert data["status_code"] == 201
-        assert data["message"] == "User Registered Successfully"
-        assert data.get("data", {})["email"] == "jayson@gtest.com"
+            assert data["status_code"] == 201
+            assert data["message"] == "User Registered Successfully"
+            assert data.get("data", {})["email"] == "jayson@gtest.com"
+        with patch(
+            "app.service.v1.authentication_service.AuthenticationService.send_email",
+            return_value=None,
+        ):
+            response = await client.post(
+                url="/api/v1/auth/register", json=register_input
+            )
 
-        response = await client.post(url="/api/v1/auth/register", json=register_input)
+            assert response.status_code == 201
 
-        assert response.status_code == 201
+            data: dict = response.json()
 
-        data: dict = response.json()
+            assert data["status_code"] == 201
+            assert data["message"] == "User already Registered"
+            assert data.get("data", {})["email"] == "jayson@gtest.com"
 
-        assert data["status_code"] == 201
-        assert data["message"] == "User already Registered"
-        assert data.get("data", {})["email"] == "jayson@gtest.com"
-
-        await delete_user(test_get_session, "jayson@gtest.com")
+            await delete_user(test_get_session, "jayson@gtest.com")
 
     @pytest.mark.asyncio
     async def test_b_missing_email(self, client: AsyncClient):
@@ -48,15 +60,21 @@ class TestRegisterRoute:
         Test missing email in user registration
         """
         register_input["email"] = None  # type: ignore
-        response = await client.post(url="/api/v1/auth/register", json=register_input)
+        with patch(
+            "app.service.v1.authentication_service.AuthenticationService.send_email",
+            return_value=None,
+        ):
+            response = await client.post(
+                url="/api/v1/auth/register", json=register_input
+            )
 
-        assert response.status_code == 422
+            assert response.status_code == 422
 
-        data: dict = response.json()
+            data: dict = response.json()
 
-        assert data["status_code"] == 422
-        assert data["message"] == "Validation Error."
-        assert data["data"]["msg"].endswith(" email must be provided")
+            assert data["status_code"] == 422
+            assert data["message"] == "Validation Error."
+            assert data["data"]["msg"].endswith(" email must be provided")
 
     @pytest.mark.asyncio
     async def test_c_missing_password(self, client: AsyncClient):
@@ -64,15 +82,21 @@ class TestRegisterRoute:
         Test missing password in user registration
         """
         register_input["password"] = None  # type: ignore
-        response = await client.post(url="/api/v1/auth/register", json=register_input)
+        with patch(
+            "app.service.v1.authentication_service.AuthenticationService.send_email",
+            return_value=None,
+        ):
+            response = await client.post(
+                url="/api/v1/auth/register", json=register_input
+            )
 
-        assert response.status_code == 422
+            assert response.status_code == 422
 
-        data: dict = response.json()
+            data: dict = response.json()
 
-        assert data["status_code"] == 422
-        assert data["message"] == "Validation Error."
-        assert data["data"]["msg"].endswith(" password must be provided")
+            assert data["status_code"] == 422
+            assert data["message"] == "Validation Error."
+            assert data["data"]["msg"].endswith(" password must be provided")
 
     @pytest.mark.asyncio
     async def test_d_missing_confirm_password(self, client: AsyncClient):
@@ -81,15 +105,21 @@ class TestRegisterRoute:
         """
         register_input["confirm_password"] = None  # type: ignore
         register_input["password"] = "Jayson1234#"
-        response = await client.post(url="/api/v1/auth/register", json=register_input)
+        with patch(
+            "app.service.v1.authentication_service.AuthenticationService.send_email",
+            return_value=None,
+        ):
+            response = await client.post(
+                url="/api/v1/auth/register", json=register_input
+            )
 
-        assert response.status_code == 422
+            assert response.status_code == 422
 
-        data: dict = response.json()
+            data: dict = response.json()
 
-        assert data["status_code"] == 422
-        assert data["message"] == "Validation Error."
-        assert data["data"]["msg"].endswith(" Passwords must match")
+            assert data["status_code"] == 422
+            assert data["message"] == "Validation Error."
+            assert data["data"]["msg"].endswith(" Passwords must match")
 
     @pytest.mark.asyncio
     async def test_e_not_matching_passwords(self, client: AsyncClient):
@@ -98,16 +128,21 @@ class TestRegisterRoute:
         """
         register_input["confirm_password"] = "notmath"
         register_input["password"] = "Jayson1234#"
+        with patch(
+            "app.service.v1.authentication_service.AuthenticationService.send_email",
+            return_value=None,
+        ):
+            response = await client.post(
+                url="/api/v1/auth/register", json=register_input
+            )
 
-        response = await client.post(url="/api/v1/auth/register", json=register_input)
+            assert response.status_code == 422
 
-        assert response.status_code == 422
+            data: dict = response.json()
 
-        data: dict = response.json()
-
-        assert data["status_code"] == 422
-        assert data["message"] == "Validation Error."
-        assert data["data"]["msg"].endswith(" Passwords must match")
+            assert data["status_code"] == 422
+            assert data["message"] == "Validation Error."
+            assert data["data"]["msg"].endswith(" Passwords must match")
 
     @pytest.mark.asyncio
     async def test_f_missing_idempotency_key(self, client: AsyncClient):
@@ -117,13 +152,18 @@ class TestRegisterRoute:
         register_input["confirm_password"] = "Jayson1234#"
         register_input["idempotency_key"] = None  # type: ignore
         register_input["email"] = "jayson@gtest.com"
+        with patch(
+            "app.service.v1.authentication_service.AuthenticationService.send_email",
+            return_value=None,
+        ):
+            response = await client.post(
+                url="/api/v1/auth/register", json=register_input
+            )
 
-        response = await client.post(url="/api/v1/auth/register", json=register_input)
+            assert response.status_code == 422
 
-        assert response.status_code == 422
+            data: dict = response.json()
 
-        data: dict = response.json()
-
-        assert data["status_code"] == 422
-        assert data["message"] == "Validation Error."
-        assert data["data"]["msg"].endswith("Input should be a valid string")
+            assert data["status_code"] == 422
+            assert data["message"] == "Validation Error."
+            assert data["data"]["msg"].endswith("Input should be a valid string")

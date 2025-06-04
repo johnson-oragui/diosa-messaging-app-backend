@@ -17,6 +17,14 @@ from app.dto.v1.authentication_dto import (
     RefreshTokenResponseDto,
     PasswordChangeRequestDto,
     PasswordChangeResponseDto,
+    PasswordResetInitRequestDto,
+    PasswordResetInitResponseDto,
+    PasswordResetRequestDto,
+    PasswordResetResponseDto,
+    AccountVerificationRequestDto,
+    AccountVerificationResponseDto,
+    ResendVerificationCodeResponseDto,
+    AccountDeletionResponseDto,
 )
 from app.database.session import get_async_session
 from app.core.security import validate_logout_status, get_refresh_token_header
@@ -134,7 +142,7 @@ async def refresh_tokens(
     )
 
 
-@auth_router.post(
+@auth_router.patch(
     "/change-password",
     status_code=status.HTTP_200_OK,
     responses=responses,
@@ -159,4 +167,133 @@ async def change_password(
     """
     return await authentication_service.change_password(
         request=request, session=session, schema=schema
+    )
+
+
+@auth_router.post(
+    "/password-reset-init",
+    status_code=status.HTTP_200_OK,
+    responses=responses,
+    response_model=PasswordResetInitResponseDto,
+)
+async def initiate_password_reset(
+    _: Request,
+    session: typing.Annotated[AsyncSession, Depends(get_async_session)],
+    schema: PasswordResetInitRequestDto,
+) -> typing.Union[PasswordResetInitResponseDto, None]:
+    """
+    Initiates password  reset.
+
+    Return:
+        Success message upon successful change
+    Raises:
+        401 Unauthorized.
+        422 Validation Error.
+        500 Internal server error
+        409 conflict
+    """
+    return await authentication_service.initiate_reset_password(
+        session=session, schema=schema
+    )
+
+
+@auth_router.put(
+    "/password-reset",
+    status_code=status.HTTP_200_OK,
+    responses=responses,
+    response_model=PasswordResetResponseDto,
+)
+async def password_reset(
+    _: Request,
+    session: typing.Annotated[AsyncSession, Depends(get_async_session)],
+    schema: PasswordResetRequestDto,
+) -> typing.Union[PasswordResetResponseDto, None]:
+    """
+    Resets password.
+
+    Return:
+        Success message upon successful change
+    Raises:
+        401 Unauthorized.
+        422 Validation Error.
+        500 Internal server error
+        409 conflict
+    """
+    return await authentication_service.reset_password(session=session, schema=schema)
+
+
+@auth_router.patch(
+    "/verify-account",
+    status_code=status.HTTP_200_OK,
+    responses=responses,
+    response_model=AccountVerificationResponseDto,
+)
+async def account_verification(
+    _: Request,
+    session: typing.Annotated[AsyncSession, Depends(get_async_session)],
+    schema: AccountVerificationRequestDto,
+) -> typing.Union[AccountVerificationResponseDto, None]:
+    """
+    Verifies account.
+
+    Return:
+        Success message upon successful verification
+    Raises:
+        401 Unauthorized.
+        422 Validation Error.
+        500 Internal server error
+        409 conflict
+    """
+    return await authentication_service.verify_account(session=session, schema=schema)
+
+
+@auth_router.post(
+    "/resend-verification-code",
+    status_code=status.HTTP_200_OK,
+    responses=responses,
+    response_model=ResendVerificationCodeResponseDto,
+)
+async def resend_verification_code(
+    _: Request,
+    session: typing.Annotated[AsyncSession, Depends(get_async_session)],
+    schema: PasswordResetInitRequestDto,
+) -> typing.Union[ResendVerificationCodeResponseDto, None]:
+    """
+    resends account verifucation code.
+
+    Return:
+        Success message upon successful resend
+    Raises:
+        401 Unauthorized.
+        422 Validation Error.
+        500 Internal server error
+        409 conflict
+    """
+    return await authentication_service.resend_verification_code(
+        session=session, schema=schema
+    )
+
+
+@auth_router.post(
+    "/account-deletion",
+    status_code=status.HTTP_200_OK,
+    responses=responses,
+    response_model=AccountDeletionResponseDto,
+    dependencies=[Depends(validate_logout_status)],
+)
+async def account_deletion(
+    request: Request,
+    session: typing.Annotated[AsyncSession, Depends(get_async_session)],
+) -> typing.Union[AccountDeletionResponseDto, None]:
+    """
+    Delets User account.
+
+    Return:
+        Success message upon successful deletion
+    Raises:
+        401 Unauthorized.
+        500 Internal server error
+    """
+    return await authentication_service.account_deletion(
+        session=session, request=request
     )

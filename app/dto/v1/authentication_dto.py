@@ -279,3 +279,127 @@ class PasswordChangeResponseDto(BaseModel):
         default="Password update successful", examples=["Password update successful"]
     )
     data: dict = Field(default={}, examples=[{}])
+
+
+# +++++++++++++++++++++++++= password reset +++++++++++++++++++++++++++++
+class PasswordResetInitRequestDto(BaseModel):
+    """
+    PasswordResetInitRequestDto
+    """
+
+    email: EmailStr = Field(examples=["johnson@gmail.com"])
+
+
+class PasswordResetInitResponseDto(BaseModel):
+    """
+    PasswordResetInitResponseDto
+    """
+
+    status_code: int = Field(default=200, examples=[200])
+    message: str = Field(
+        default="Reset code sent, To expire in 5 minutes",
+        examples=["Reset code sent, To expire in 5 minutes"],
+    )
+    data: dict = Field(default={}, examples=[{}])
+
+
+class PasswordResetRequestDto(BaseModel):
+    """
+    PasswordResetRequestDto
+    """
+
+    email: EmailStr = Field(examples=["johnson@gmail.com"])
+    code: Annotated[
+        str, StringConstraints(min_length=6, max_length=6, strip_whitespace=True)
+    ] = Field(examples=["123456"])
+    password: str = Field(examples=["Johnson1234#"])
+    confirm_password: str = Field(examples=["Johnson1234#"])
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_password(cls, values: dict) -> dict:
+        """
+        Validates fields
+        """
+        if isinstance(values, bytes):
+            values = json.loads(values)
+        password: str | None = values.get("password", None)
+        confirm_password: str | None = values.get("confirm_password", None)
+        code: str | None = values.get("code", "")
+
+        if code is not None and code.isdigit() is False:
+            raise ValueError("code must be digits")
+
+        if password != confirm_password:
+            raise ValueError("confirm_password and password must match")
+
+        validate_password(password)
+
+        return values
+
+
+class PasswordResetResponseDto(BaseModel):
+    """
+    PasswordResetResponseDto
+    """
+
+    status_code: int = Field(default=200, examples=[200])
+    message: str = Field(
+        default="Password reset successful",
+        examples=["Password reset successful"],
+    )
+    data: dict = Field(default={}, examples=[{}])
+
+
+# +++++++++++++++++++++++++= password reset +++++++++++++++++++++++++++++
+class AccountVerificationRequestDto(BaseModel):
+    """
+    AccountVerificationRequestDto
+    """
+
+    email: EmailStr = Field(examples=["johnson@gmail.com"])
+    code: Annotated[
+        str, StringConstraints(min_length=6, max_length=6, strip_whitespace=True)
+    ] = Field(examples=["123456"])
+
+
+class AccountVerificationResponseDto(BaseModel):
+    """
+    AccountVerificationResponseDto
+    """
+
+    status_code: int = Field(default=200, examples=[200])
+    message: str = Field(
+        default="Account verified successfully",
+        examples=["Account verified successfully"],
+    )
+    data: dict = Field(default={}, examples=[{}])
+
+
+class ResendVerificationCodeResponseDto(BaseModel):
+    """
+    ResendVerificationCodeResponseDto
+    """
+
+    status_code: int = Field(default=200, examples=[200])
+    message: str = Field(
+        default="Verification code resent successfully",
+        examples=["Verification code resent successfully"],
+    )
+    data: dict = Field(default={}, examples=[{}])
+
+
+# +++++++++++++++++++++++++= Account deletion +++++++++++++++++++++++++++++
+
+
+class AccountDeletionResponseDto(BaseModel):
+    """
+    AccountDeletionResponseDto
+    """
+
+    status_code: int = Field(default=200, examples=[200])
+    message: str = Field(
+        default="Account deletion successful.",
+        examples=["Account deletion successful."],
+    )
+    data: dict = Field(default={}, examples=[{}])
