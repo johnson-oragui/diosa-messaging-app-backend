@@ -129,7 +129,7 @@ class TestAuthenticationROute:
                 )
                 assert response.status_code == 201
 
-                await client.post(
+                await client.patch(
                     url="/api/v1/auth/verify-account",
                     json={"email": login_register_input.get("email"), "code": "123456"},
                 )

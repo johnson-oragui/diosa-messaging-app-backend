@@ -40,7 +40,7 @@ class TestPasswordChange:
                 )
                 assert response.status_code == 201
 
-                await client.post(
+                await client.patch(
                     url="/api/v1/auth/verify-account",
                     json={
                         "email": password_change_register_input.get("email"),
@@ -63,7 +63,7 @@ class TestPasswordChange:
             "new_password": "Johnson1234#",
             "confirm_password": "Johnson1234#",
         }
-        response = await client.post(
+        response = await client.patch(
             url="/api/v1/auth/change-password",
             json=password_change_data,
             headers={"Authorization": f"Bearer {access_token}"},
@@ -106,7 +106,7 @@ class TestPasswordChange:
                 )
                 assert response.status_code == 201
 
-                await client.post(
+                await client.patch(
                     url="/api/v1/auth/verify-account",
                     json={
                         "email": password_change_register_input.get("email"),
@@ -128,7 +128,7 @@ class TestPasswordChange:
             "new_password": "OldPassword1234$",
             "confirm_password": "OldPassword123$",
         }
-        response = await client.post(
+        response = await client.patch(
             url="/api/v1/auth/change-password",
             json=password_change_data,
             headers={"Authorization": f"Bearer {access_token}"},
@@ -171,7 +171,7 @@ class TestPasswordChange:
                 )
                 assert response.status_code == 201
 
-                await client.post(
+                await client.patch(
                     url="/api/v1/auth/verify-account",
                     json={
                         "email": password_change_register_input.get("email"),
@@ -194,7 +194,7 @@ class TestPasswordChange:
             "new_password": "OldPassword1234",
             "confirm_password": "OldPassword1234",
         }
-        response = await client.post(
+        response = await client.patch(
             url="/api/v1/auth/change-password",
             json=password_change_data,
             headers={"Authorization": f"Bearer {access_token}"},
@@ -213,7 +213,7 @@ class TestPasswordChange:
         # no digit
         password_change_data["new_password"] = "OldPassword$"
         password_change_data["confirm_password"] = "OldPassword$"
-        response = await client.post(
+        response = await client.patch(
             url="/api/v1/auth/change-password",
             json=password_change_data,
             headers={"Authorization": f"Bearer {access_token}"},
@@ -229,7 +229,7 @@ class TestPasswordChange:
         # no upper case
         password_change_data["new_password"] = "oldpassword2$"
         password_change_data["confirm_password"] = "oldpassword2$"
-        response = await client.post(
+        response = await client.patch(
             url="/api/v1/auth/change-password",
             json=password_change_data,
             headers={"Authorization": f"Bearer {access_token}"},
@@ -244,7 +244,7 @@ class TestPasswordChange:
         # no lower case
         password_change_data["new_password"] = "OLDPASSWR221$"
         password_change_data["confirm_password"] = "OLDPASSWR221$"
-        response = await client.post(
+        response = await client.patch(
             url="/api/v1/auth/change-password",
             json=password_change_data,
             headers={"Authorization": f"Bearer {access_token}"},
@@ -283,7 +283,7 @@ class TestPasswordChange:
                 )
                 assert response.status_code == 201
 
-                await client.post(
+                await client.patch(
                     url="/api/v1/auth/verify-account",
                     json={
                         "email": password_change_register_input.get("email"),
@@ -305,7 +305,7 @@ class TestPasswordChange:
             "new_password": "Johnson12345#",
             "confirm_password": "Johnson12345#",
         }
-        response = await client.post(
+        response = await client.patch(
             url="/api/v1/auth/change-password",
             json=password_change_data,
             headers={"Authorization": f"Bearer {access_token}"},
@@ -344,7 +344,7 @@ class TestPasswordChange:
                 )
                 assert response.status_code == 201
 
-                await client.post(
+                await client.patch(
                     url="/api/v1/auth/verify-account",
                     json={
                         "email": password_change_register_input.get("email"),
@@ -366,7 +366,7 @@ class TestPasswordChange:
             "new_password": "Johnson12345#",
             "confirm_password": "Johnson12345#",
         }
-        response = await client.post(
+        response = await client.patch(
             url="/api/v1/auth/change-password",
             json=password_change_data,
             headers={"Authorization": f"Bearer {access_token}"},
