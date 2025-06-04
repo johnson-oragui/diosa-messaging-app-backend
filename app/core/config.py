@@ -49,6 +49,8 @@ class Settings(BaseSettings):
     celery_result_backend: str
     celery_result_backend_test: str
 
+    redis_url: str
+
     model_config: SettingsConfigDict = {  # type: ignore
         "env_file": ".env",
         "case_sensitive": False,

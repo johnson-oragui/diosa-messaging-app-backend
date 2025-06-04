@@ -2,6 +2,7 @@
 Test suthentication module
 """
 
+from unittest.mock import patch
 import pytest
 from httpx import AsyncClient
 
@@ -58,31 +59,45 @@ class TestLogoutRoute:
             "email": login_register_input.get("email"),
             "session_id": "000000000000-0000-0000-0000-01000001",
         }
+        with patch(
+            "app.service.v1.authentication_service.AuthenticationService.generate_six_digit_code",
+            return_value="123456",
+        ):
+            with patch(
+                "app.service.v1.authentication_service.AuthenticationService.send_email",
+                return_value=None,
+            ):
+                response = await client.post(
+                    url="/api/v1/auth/register", json=login_register_input
+                )
+                assert response.status_code == 201
 
-        response = await client.post(
-            url="/api/v1/auth/register", json=login_register_input
-        )
-        assert response.status_code == 201
+                await client.patch(
+                    url="/api/v1/auth/verify-account",
+                    json={"email": login_register_input.get("email"), "code": "123456"},
+                )
 
-        response = await client.post(url="/api/v1/auth/login", json=login_payload)
+                response1 = await client.post(
+                    url="/api/v1/auth/login", json=login_payload
+                )
 
-        assert response.status_code == 200
+                assert response1.status_code == 200
 
-        data: dict = response.json()
+                data: dict = response1.json()
 
-        access_token = data["data"]["access_token"]["token"]
+                access_token = data["data"]["access_token"]["token"]
 
-        response = await client.post(
-            url="/api/v1/auth/logout",
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
+                response = await client.post(
+                    url="/api/v1/auth/logout",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                )
 
-        assert response.status_code == 200
+                assert response.status_code == 200
 
-        data: dict = response.json()
+                data: dict = response.json()
 
-        assert data["status_code"] == 200
-        assert data["message"] == "Logout success"
+                assert data["status_code"] == 200
+                assert data["message"] == "Logout success"
 
     @pytest.mark.asyncio
     async def test_d_when_logout_twice_returns_401(
@@ -97,11 +112,23 @@ class TestLogoutRoute:
             "email": login_register_input.get("email"),
             "session_id": "000000000000-0000-0100-0000-01000001",
         }
+        with patch(
+            "app.service.v1.authentication_service.AuthenticationService.send_email",
+            return_value=None,
+        ):
+            with patch(
+                "app.service.v1.authentication_service.AuthenticationService.generate_six_digit_code",
+                return_value="123456",
+            ):
+                response = await client.post(
+                    url="/api/v1/auth/register", json=login_register_input
+                )
+                assert response.status_code == 201
 
-        response = await client.post(
-            url="/api/v1/auth/register", json=login_register_input
-        )
-        assert response.status_code == 201
+                await client.patch(
+                    url="/api/v1/auth/verify-account",
+                    json={"email": login_register_input.get("email"), "code": "123456"},
+                )
 
         response = await client.post(url="/api/v1/auth/login", json=login_payload)
 

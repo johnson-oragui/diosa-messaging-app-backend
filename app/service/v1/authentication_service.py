@@ -5,6 +5,8 @@ AuthenticationService module
 import typing
 from uuid import uuid4
 from datetime import datetime, timedelta
+import string
+import random
 
 from fastapi import status, HTTPException, Request, Response
 from sqlalchemy.exc import IntegrityError
@@ -23,6 +25,14 @@ from app.dto.v1.authentication_dto import (
     RefreshTokenResponseDto,
     PasswordChangeRequestDto,
     PasswordChangeResponseDto,
+    PasswordResetInitRequestDto,
+    PasswordResetInitResponseDto,
+    PasswordResetResponseDto,
+    PasswordResetRequestDto,
+    AccountVerificationResponseDto,
+    AccountVerificationRequestDto,
+    ResendVerificationCodeResponseDto,
+    AccountDeletionResponseDto,
 )
 from app.repository.v1.user_repository import (
     user_repository,
@@ -33,6 +43,8 @@ from app.repository.v1.user_session_repository import (
 from app.utils.task_logger import create_logger
 from app.core.config import settings
 from app.core.security import generate_token
+from app.database.redis_db import get_redis_async
+from app.utils.celery_setup.tasks import send_email_in_background
 
 logger = create_logger(":: Authentication Service ::")
 
@@ -70,6 +82,17 @@ class AuthenticationService:
                 False,
                 session=session,
             )
+            async with get_redis_async() as redis_session:  # type: ignore
+                key = f"chat:email-verification:{schema.email}"
+                code = await self.generate_six_digit_code()
+                await redis_session.set(key, value=code, ex=(5 * 60))
+                context = {
+                    "token": code,
+                    "recipient_email": schema.email,
+                    "subject": "Email Verification",
+                    "template_name": "email-verification.html",
+                }
+                await self.send_email(context)
             return RegisterOutputResponseDto(
                 data=UserBaseDto.model_validate(new_user, from_attributes=True)
             )
@@ -89,6 +112,7 @@ class AuthenticationService:
         """
         Authenticates a user
         """
+
         user_exists = await user_repository.fetch_by_username_or_email(
             str(schema.email), schema.username, session=session
         )
@@ -100,6 +124,8 @@ class AuthenticationService:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
             )
+        if not user_exists.email_verified:
+            raise HTTPException(status_code=403, detail="Email not verified yet")
         user_session_exists = await user_session_repository.fetch(
             None, None, schema.session_id, None, session=session
         )
@@ -262,7 +288,14 @@ class AuthenticationService:
         self, request: Request, schema: PasswordChangeRequestDto, session: AsyncSession
     ) -> typing.Union[PasswordChangeResponseDto, None]:
         """
-        Password change
+        Password change.
+
+        Args:
+            request(Request): The request object.
+            schema(PasswordChangeRequestDto): The request payload
+            session(AsyncSession): The database async session object
+        Returns:
+            PasswordChangeResponseDto: response payload
         """
         claims: dict = request.state.claims
 
@@ -277,6 +310,179 @@ class AuthenticationService:
             raise HTTPException(status_code=400, detail="Invalid credentials")
 
         return PasswordChangeResponseDto()
+
+    async def initiate_reset_password(
+        self, schema: PasswordResetInitRequestDto, session: AsyncSession
+    ) -> typing.Union[PasswordResetInitResponseDto, None]:
+        """
+        Initiates User password reset.
+
+        Args:
+            request(Request): The request object.
+            schema(PasswordResetInitRequestDto): The request payload
+            session(AsyncSession): The database async session object
+        Returns:
+            PasswordResetInitResponseDto: response payload
+        """
+        email_exists = await user_repository.fetch_by_email(
+            email=schema.email, session=session
+        )
+        if not email_exists:
+            raise HTTPException(status_code=404, detail="Email not found")
+
+        reset_code = await self.generate_six_digit_code()
+        key = f"chat:password-reset-code:{schema.email}"
+        async with get_redis_async() as redis_async:  # type: ignore
+            await redis_async.set(name=key, value=reset_code, ex=(5 * 60))
+        context = {
+            "token": reset_code,
+            "recipient_email": schema.email,
+            "subject": "Password Reset",
+            "template_name": "password-reset.html",
+        }
+        await self.send_email(context)
+
+        return PasswordResetInitResponseDto()
+
+    async def reset_password(
+        self, schema: PasswordResetRequestDto, session: AsyncSession
+    ) -> typing.Union[PasswordResetResponseDto, None]:
+        """
+        Resets User password.
+
+        Args:
+            request(Request): The request object.
+            schema(PasswordResetRequestDto): The request payload
+            session(AsyncSession): The database async session object
+        Returns:
+            PasswordResetResponseDto: response payload
+        """
+        code = None
+        key = f"chat:password-reset-code:{schema.email}"
+        async with get_redis_async() as redis_async:  # type: ignore
+
+            code = await redis_async.get(key)
+            if not code:
+                raise HTTPException(status_code=401, detail="code expired or invalid")
+            user = await user_repository.fetch_by_email(
+                email=schema.email, session=session
+            )
+            if not user:
+                raise HTTPException(status_code=404, detail="User not found")
+
+            await user_repository.set_new_password(
+                new_password=schema.password, session=session, user=user
+            )
+            context = {
+                "recipient_email": schema.email,
+                "subject": "Successful Password Reset",
+                "template_name": "password-reset-success.html",
+            }
+            await self.send_email(context)
+
+            await redis_async.delete(key)
+
+        return PasswordResetResponseDto()
+
+    async def verify_account(
+        self, schema: AccountVerificationRequestDto, session: AsyncSession
+    ) -> typing.Union[AccountVerificationResponseDto, None]:
+        """
+        Verifies user accounts.
+
+        Args:
+            schema(PasswordResetRequestDto): The request payload
+            session(AsyncSession): The database async session object
+        Returns:
+            AccountVerificationResponseDto: response payload
+        """
+        key = f"chat:email-verification:{schema.email}"
+        async with get_redis_async() as redis_session:  # type: ignore
+            code = await redis_session.get(key)
+
+            if code != schema.code:
+                raise HTTPException(status_code=401, detail="Invalid credentials")
+            user = await user_repository.fetch_by_email(
+                email=schema.email, session=session
+            )
+            if not user:
+                raise HTTPException(status_code=401, detail="User not found")
+            await user_repository.verify_user(session=session, user=user)
+
+            await redis_session.delete(key)
+
+            await session.refresh(user)
+
+        return AccountVerificationResponseDto()
+
+    async def resend_verification_code(
+        self, schema: PasswordResetInitRequestDto, session: AsyncSession
+    ) -> typing.Union[ResendVerificationCodeResponseDto, None]:
+        """
+        Resends account verification code after 5 minutes.
+
+        Args:
+            schema(PasswordResetRequestDto): The request payload
+            session(AsyncSession): The database async session object
+        Returns:
+            ResendVerificationCodeResponseDto: response payload
+        """
+        key = f"chat:email-verification:{schema.email}"
+        code = None
+        async with get_redis_async() as redis_session:  # type: ignore
+            code = await redis_session.get(key)
+            if code:
+                raise HTTPException(
+                    status_code=409, detail="Verification code is not expired"
+                )
+            user = await user_repository.fetch_by_email(schema.email, session=session)
+            if not user:
+                raise HTTPException(status_code=404, detail="User not found")
+
+            new_code = await self.generate_six_digit_code()
+            await redis_session.set(name=key, value=new_code, ex=(5 * 60))
+
+        return ResendVerificationCodeResponseDto()
+
+    async def account_deletion(
+        self, session: AsyncSession, request: Request
+    ) -> typing.Union[AccountDeletionResponseDto, None]:
+        """
+        Deletes User account.
+
+        Args:
+            request(Request): The request object.
+            session(AsyncSession): The database async session object
+        Returns:
+            AccountDeletionResponseDto: response payload
+
+        """
+        claims: dict = request.state.claims
+        user_exists = await user_repository.fetch_by_id(
+            user_id=claims.get("user_id", ""), session=session
+        )
+        if not user_exists:
+            raise HTTPException(status_code=404, detail="User not found")
+        await user_repository.delete(user=user_exists, session=session)
+        return AccountDeletionResponseDto()
+
+    async def send_email(self, context: dict) -> None:
+        """
+        Sends email.
+
+        Args:
+            context(dict): The vars for email sending.
+        Returns:
+            None
+        """
+        send_email_in_background.delay(context)  # type: ignore
+
+    async def generate_six_digit_code(self) -> str:
+        """
+        Generates six digit code
+        """
+        code_list = [random.choice(string.digits) for _ in range(6)]
+        return "".join(code_list)
 
 
 authentication_service = AuthenticationService()
