@@ -2,6 +2,7 @@
 Test suthentication module
 """
 
+from unittest.mock import patch
 import pytest
 from httpx import AsyncClient
 
@@ -115,19 +116,33 @@ class TestAuthenticationROute:
             "email": login_register_input.get("email"),
             "session_id": "000000000000-0000-0000-0000-00000001",
         }
+        with patch(
+            "app.service.v1.authentication_service.AuthenticationService.send_email",
+            return_value=None,
+        ):
+            with patch(
+                "app.service.v1.authentication_service.AuthenticationService.generate_six_digit_code",
+                return_value="123456",
+            ):
+                response = await client.post(
+                    url="/api/v1/auth/register", json=login_register_input
+                )
+                assert response.status_code == 201
 
-        response = await client.post(
-            url="/api/v1/auth/register", json=login_register_input
-        )
-        assert response.status_code == 201
+                await client.post(
+                    url="/api/v1/auth/verify-account",
+                    json={"email": login_register_input.get("email"), "code": "123456"},
+                )
 
-        response = await client.post(url="/api/v1/auth/login", json=login_payload)
+                response = await client.post(
+                    url="/api/v1/auth/login", json=login_payload
+                )
 
-        assert response.status_code == 200
-        assert response.headers.get("x-refresh-token") is not None
+                assert response.status_code == 200
+                assert response.headers.get("x-refresh-token") is not None
 
-        data: dict = response.json()
+                data: dict = response.json()
 
-        assert data["status_code"] == 200
-        assert data["message"] == "Login success"
-        assert data["data"]["access_token"] is not None
+                assert data["status_code"] == 200
+                assert data["message"] == "Login success"
+                assert data["data"]["access_token"] is not None
