@@ -32,6 +32,7 @@ from app.dto.v1.authentication_dto import (
     AccountVerificationResponseDto,
     AccountVerificationRequestDto,
     ResendVerificationCodeResponseDto,
+    AccountDeletionResponseDto,
 )
 from app.repository.v1.user_repository import (
     user_repository,
@@ -357,25 +358,29 @@ class AuthenticationService:
             PasswordResetResponseDto: response payload
         """
         code = None
+        key = f"chat:password-reset-code:{schema.email}"
         async with get_redis_async() as redis_async:  # type: ignore
-            key = f"chat:password-reset-code:{schema.email}"
+
             code = await redis_async.get(key)
             if not code:
                 raise HTTPException(status_code=401, detail="code expired or invalid")
-        user = await user_repository.fetch_by_email(email=schema.email, session=session)
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
+            user = await user_repository.fetch_by_email(
+                email=schema.email, session=session
+            )
+            if not user:
+                raise HTTPException(status_code=404, detail="User not found")
 
-        await user_repository.set_new_password(
-            new_password=schema.password, session=session, user=user
-        )
-        context = {
-            "recipient_email": schema.email,
-            "subject": "Successful Password Reset",
-            "template_name": "password-reset-success.html",
-        }
-        await self.send_email(context)
-        await redis_async.delete(key)
+            await user_repository.set_new_password(
+                new_password=schema.password, session=session, user=user
+            )
+            context = {
+                "recipient_email": schema.email,
+                "subject": "Successful Password Reset",
+                "template_name": "password-reset-success.html",
+            }
+            await self.send_email(context)
+
+            await redis_async.delete(key)
 
         return PasswordResetResponseDto()
 
@@ -384,6 +389,12 @@ class AuthenticationService:
     ) -> typing.Union[AccountVerificationResponseDto, None]:
         """
         Verifies user accounts.
+
+        Args:
+            schema(PasswordResetRequestDto): The request payload
+            session(AsyncSession): The database async session object
+        Returns:
+            AccountVerificationResponseDto: response payload
         """
         key = f"chat:email-verification:{schema.email}"
         async with get_redis_async() as redis_session:  # type: ignore
@@ -408,7 +419,13 @@ class AuthenticationService:
         self, schema: PasswordResetInitRequestDto, session: AsyncSession
     ) -> typing.Union[ResendVerificationCodeResponseDto, None]:
         """
-        Resends account verification code after 5 minutes
+        Resends account verification code after 5 minutes.
+
+        Args:
+            schema(PasswordResetRequestDto): The request payload
+            session(AsyncSession): The database async session object
+        Returns:
+            ResendVerificationCodeResponseDto: response payload
         """
         key = f"chat:email-verification:{schema.email}"
         code = None
@@ -427,12 +444,34 @@ class AuthenticationService:
 
         return ResendVerificationCodeResponseDto()
 
+    async def account_deletion(
+        self, session: AsyncSession, request: Request
+    ) -> typing.Union[AccountDeletionResponseDto, None]:
+        """
+        Deletes User account.
+
+        Args:
+            request(Request): The request object.
+            session(AsyncSession): The database async session object
+        Returns:
+            AccountDeletionResponseDto: response payload
+
+        """
+        claims: dict = request.state.claims
+        user_exists = await user_repository.fetch_by_id(
+            user_id=claims.get("user_id", ""), session=session
+        )
+        if not user_exists:
+            raise HTTPException(status_code=404, detail="User not found")
+        await user_repository.delete(user=user_exists, session=session)
+        return AccountDeletionResponseDto()
+
     async def send_email(self, context: dict) -> None:
         """
         Sends email.
 
         Args:
-            contect(dict): The vars for email sending.
+            context(dict): The vars for email sending.
         Returns:
             None
         """
