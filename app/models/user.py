@@ -26,14 +26,14 @@ class User(ModelMixin, Base):
 
     __tablename__ = "chat_users"  # type: ignore
 
-    first_name: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
-    last_name: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
-    email: Mapped[str] = mapped_column(String(30), unique=True)
+    first_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    last_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    email: Mapped[str] = mapped_column(String(150), unique=True)
     password: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     username: Mapped[Optional[str]] = mapped_column(
-        String(30), unique=True, nullable=True
+        String(150), unique=True, nullable=True
     )
-    idempotency_key: Mapped[str] = mapped_column(String(120))
+    idempotency_key: Mapped[str] = mapped_column(String(150))
     email_verified: Mapped[bool] = mapped_column(default=False, server_default="FALSE")
     is_deleted: Mapped[bool] = mapped_column(default=False, server_default="FALSE")
     profile_photo: Mapped[Optional[str]] = mapped_column(nullable=True)
