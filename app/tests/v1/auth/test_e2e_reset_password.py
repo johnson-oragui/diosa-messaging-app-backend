@@ -44,7 +44,7 @@ class TestResetPassword:
         """
         # register
 
-        response = await client.post(
+        response = await client.put(
             url="/api/v1/auth/password-reset",
             json={
                 "email": "fake@gmail.com",
@@ -68,7 +68,7 @@ class TestResetPassword:
         """
         # register
 
-        response = await client.post(
+        response = await client.put(
             url="/api/v1/auth/password-reset",
             json={
                 "email": "fake@gmail.com",
@@ -118,7 +118,7 @@ class TestResetPassword:
 
                 assert data["message"] == "Reset code sent, To expire in 5 minutes"
 
-                response = await client.post(
+                response = await client.put(
                     url="/api/v1/auth/password-reset",
                     json={
                         "email": password_reset_register_input.get("email"),
