@@ -374,7 +374,8 @@ class AccountVerificationResponseDto(BaseModel):
         examples=["Account verified successfully"],
     )
     data: dict = Field(default={}, examples=[{}])
-    
+
+
 class ResendVerificationCodeResponseDto(BaseModel):
     """
     ResendVerificationCodeResponseDto
@@ -384,5 +385,21 @@ class ResendVerificationCodeResponseDto(BaseModel):
     message: str = Field(
         default="Verification code resent successfully",
         examples=["Verification code resent successfully"],
+    )
+    data: dict = Field(default={}, examples=[{}])
+
+
+# +++++++++++++++++++++++++= Account deletion +++++++++++++++++++++++++++++
+
+
+class AccountDeletionResponseDto(BaseModel):
+    """
+    AccountDeletionResponseDto
+    """
+
+    status_code: int = Field(default=200, examples=[200])
+    message: str = Field(
+        default="Account deletion successful.",
+        examples=["Account deletion successful."],
     )
     data: dict = Field(default={}, examples=[{}])
