@@ -349,3 +349,40 @@ class PasswordResetResponseDto(BaseModel):
         examples=["Password reset successful"],
     )
     data: dict = Field(default={}, examples=[{}])
+
+
+# +++++++++++++++++++++++++= password reset +++++++++++++++++++++++++++++
+class AccountVerificationRequestDto(BaseModel):
+    """
+    AccountVerificationRequestDto
+    """
+
+    email: EmailStr = Field(examples=["johnson@gmail.com"])
+    code: Annotated[
+        str, StringConstraints(min_length=6, max_length=6, strip_whitespace=True)
+    ] = Field(examples=["123456"])
+
+
+class AccountVerificationResponseDto(BaseModel):
+    """
+    AccountVerificationResponseDto
+    """
+
+    status_code: int = Field(default=200, examples=[200])
+    message: str = Field(
+        default="Account verified successfully",
+        examples=["Account verified successfully"],
+    )
+    data: dict = Field(default={}, examples=[{}])
+    
+class ResendVerificationCodeResponseDto(BaseModel):
+    """
+    ResendVerificationCodeResponseDto
+    """
+
+    status_code: int = Field(default=200, examples=[200])
+    message: str = Field(
+        default="Verification code resent successfully",
+        examples=["Verification code resent successfully"],
+    )
+    data: dict = Field(default={}, examples=[{}])
