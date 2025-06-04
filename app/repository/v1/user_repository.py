@@ -3,6 +3,7 @@ User Repository Module
 """
 
 import typing
+from uuid import uuid4
 
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -158,25 +159,32 @@ class UserRepository:
 
         return (await session.execute(query)).scalar_one_or_none()
 
-    async def delete(self, user_id: str, session: AsyncSession) -> None:
+    async def delete(self, user: User, session: AsyncSession) -> None:
         """
         Soft deletes a user account.
 
         Args:
-            user_id(str). The user id
+            user(User). The user to delete
         Returns:
             None
         """
         query = (
             sa.update(User)
             .where(
-                User.id == user_id,
+                User.id == user.id,
                 User.is_deleted.is_(False),
             )
-            .values(is_deleted=True)
+            .values(
+                is_deleted=True,
+                email=f"{user.email}:{str(uuid4())}",
+                username=f"{user.username}:{str(uuid4())}",
+                idempotency_key=f"{user.idempotency_key}:{str(uuid4())}",
+            )
         )
 
         await session.execute(query)
+
+        await session.commit()
 
     async def update_password(
         self,
