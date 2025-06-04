@@ -2,6 +2,7 @@
 Test refresh token module
 """
 
+from unittest.mock import patch
 import pytest
 from httpx import AsyncClient
 
@@ -42,10 +43,14 @@ class TestRefreshTokens:
             "session_id": "000000000000-0000-0100-0000-01010001",
         }
         # register
-        response = await client.post(
-            url="/api/v1/auth/register", json=login_register_input
-        )
-        assert response.status_code == 201
+        with patch(
+            "app.service.v1.authentication_service.AuthenticationService.send_email",
+            return_value=None,
+        ):
+            response = await client.post(
+                url="/api/v1/auth/register", json=login_register_input
+            )
+            assert response.status_code == 201
 
         # login
         response = await client.post(url="/api/v1/auth/login", json=login_payload)
@@ -81,10 +86,14 @@ class TestRefreshTokens:
             "session_id": "000000000000-0000-0100-0000-01011001",
         }
         # register
-        response = await client.post(
-            url="/api/v1/auth/register", json=login_register_input
-        )
-        assert response.status_code == 201
+        with patch(
+            "app.service.v1.authentication_service.AuthenticationService.send_email",
+            return_value=None,
+        ):
+            response = await client.post(
+                url="/api/v1/auth/register", json=login_register_input
+            )
+            assert response.status_code == 201
 
         # login
         login_response = await client.post(url="/api/v1/auth/login", json=login_payload)
