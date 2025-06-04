@@ -21,6 +21,9 @@ from app.dto.v1.authentication_dto import (
     PasswordResetInitResponseDto,
     PasswordResetRequestDto,
     PasswordResetResponseDto,
+    AccountVerificationRequestDto,
+    AccountVerificationResponseDto,
+    ResendVerificationCodeResponseDto,
 )
 from app.database.session import get_async_session
 from app.core.security import validate_logout_status, get_refresh_token_header
@@ -216,3 +219,55 @@ async def password_reset(
         409 conflict
     """
     return await authentication_service.reset_password(session=session, schema=schema)
+
+
+@auth_router.post(
+    "/verify-account",
+    status_code=status.HTTP_200_OK,
+    responses=responses,
+    response_model=AccountVerificationResponseDto,
+)
+async def account_verification(
+    _: Request,
+    session: typing.Annotated[AsyncSession, Depends(get_async_session)],
+    schema: AccountVerificationRequestDto,
+) -> typing.Union[AccountVerificationResponseDto, None]:
+    """
+    Verifies account.
+
+    Return:
+        Success message upon successful verification
+    Raises:
+        401 Unauthorized.
+        422 Validation Error.
+        500 Internal server error
+        409 conflict
+    """
+    return await authentication_service.verify_account(session=session, schema=schema)
+
+
+@auth_router.post(
+    "/resend-verification-code",
+    status_code=status.HTTP_200_OK,
+    responses=responses,
+    response_model=ResendVerificationCodeResponseDto,
+)
+async def resend_verification_code(
+    _: Request,
+    session: typing.Annotated[AsyncSession, Depends(get_async_session)],
+    schema: PasswordResetInitRequestDto,
+) -> typing.Union[ResendVerificationCodeResponseDto, None]:
+    """
+    resends account verifucation code.
+
+    Return:
+        Success message upon successful resend
+    Raises:
+        401 Unauthorized.
+        422 Validation Error.
+        500 Internal server error
+        409 conflict
+    """
+    return await authentication_service.resend_verification_code(
+        session=session, schema=schema
+    )

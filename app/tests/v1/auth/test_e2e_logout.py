@@ -2,6 +2,7 @@
 Test suthentication module
 """
 
+from unittest.mock import patch
 import pytest
 from httpx import AsyncClient
 
@@ -58,11 +59,14 @@ class TestLogoutRoute:
             "email": login_register_input.get("email"),
             "session_id": "000000000000-0000-0000-0000-01000001",
         }
-
-        response = await client.post(
-            url="/api/v1/auth/register", json=login_register_input
-        )
-        assert response.status_code == 201
+        with patch(
+            "app.service.v1.authentication_service.AuthenticationService.send_email",
+            return_value=None,
+        ):
+            response = await client.post(
+                url="/api/v1/auth/register", json=login_register_input
+            )
+            assert response.status_code == 201
 
         response = await client.post(url="/api/v1/auth/login", json=login_payload)
 
@@ -97,11 +101,23 @@ class TestLogoutRoute:
             "email": login_register_input.get("email"),
             "session_id": "000000000000-0000-0100-0000-01000001",
         }
+        with patch(
+            "app.service.v1.authentication_service.AuthenticationService.send_email",
+            return_value=None,
+        ):
+            with patch(
+                "app.service.v1.authentication_service.AuthenticationService.generate_six_digit_code",
+                return_value="123456",
+            ):
+                response = await client.post(
+                    url="/api/v1/auth/register", json=login_register_input
+                )
+                assert response.status_code == 201
 
-        response = await client.post(
-            url="/api/v1/auth/register", json=login_register_input
-        )
-        assert response.status_code == 201
+                await client.post(
+                    url="/api/v1/auth/verify-account",
+                    json={"email": login_register_input.get("email"), "code": "123456"},
+                )
 
         response = await client.post(url="/api/v1/auth/login", json=login_payload)
 

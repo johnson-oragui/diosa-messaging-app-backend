@@ -2,6 +2,7 @@
 Password change Test module
 """
 
+from unittest.mock import patch
 from httpx import AsyncClient
 import pytest
 
@@ -26,10 +27,26 @@ class TestPasswordChange:
             "session_id": "0000000000x0-0000-0100-0000-01011001",
         }
         # register
-        response = await client.post(
-            url="/api/v1/auth/register", json=password_change_register_input
-        )
-        assert response.status_code == 201
+        with patch(
+            "app.service.v1.authentication_service.AuthenticationService.send_email",
+            return_value=None,
+        ):
+            with patch(
+                "app.service.v1.authentication_service.AuthenticationService.generate_six_digit_code",
+                return_value="123456",
+            ):
+                response = await client.post(
+                    url="/api/v1/auth/register", json=password_change_register_input
+                )
+                assert response.status_code == 201
+
+                await client.post(
+                    url="/api/v1/auth/verify-account",
+                    json={
+                        "email": password_change_register_input.get("email"),
+                        "code": "123456",
+                    },
+                )
 
         # login
         login_response = await client.post(url="/api/v1/auth/login", json=login_payload)
@@ -76,10 +93,26 @@ class TestPasswordChange:
             "session_id": "a00000000000-0000-0100-0000-01011001",
         }
         # register
-        response = await client.post(
-            url="/api/v1/auth/register", json=password_change_register_input
-        )
-        assert response.status_code == 201
+        with patch(
+            "app.service.v1.authentication_service.AuthenticationService.send_email",
+            return_value=None,
+        ):
+            with patch(
+                "app.service.v1.authentication_service.AuthenticationService.generate_six_digit_code",
+                return_value="123456",
+            ):
+                response = await client.post(
+                    url="/api/v1/auth/register", json=password_change_register_input
+                )
+                assert response.status_code == 201
+
+                await client.post(
+                    url="/api/v1/auth/verify-account",
+                    json={
+                        "email": password_change_register_input.get("email"),
+                        "code": "123456",
+                    },
+                )
 
         # login
         login_response = await client.post(url="/api/v1/auth/login", json=login_payload)
@@ -125,10 +158,26 @@ class TestPasswordChange:
             "session_id": "00qqq0000q00-0000-0100-0000-01011001",
         }
         # register
-        response = await client.post(
-            url="/api/v1/auth/register", json=password_change_register_input
-        )
-        assert response.status_code == 201
+        with patch(
+            "app.service.v1.authentication_service.AuthenticationService.send_email",
+            return_value=None,
+        ):
+            with patch(
+                "app.service.v1.authentication_service.AuthenticationService.generate_six_digit_code",
+                return_value="123456",
+            ):
+                response = await client.post(
+                    url="/api/v1/auth/register", json=password_change_register_input
+                )
+                assert response.status_code == 201
+
+                await client.post(
+                    url="/api/v1/auth/verify-account",
+                    json={
+                        "email": password_change_register_input.get("email"),
+                        "code": "123456",
+                    },
+                )
 
         # login
         login_response = await client.post(url="/api/v1/auth/login", json=login_payload)
@@ -221,10 +270,26 @@ class TestPasswordChange:
             "session_id": "00d000000q00-0000-0100-sss0-01011001",
         }
         # register
-        response = await client.post(
-            url="/api/v1/auth/register", json=password_change_register_input
-        )
-        assert response.status_code == 201
+        with patch(
+            "app.service.v1.authentication_service.AuthenticationService.send_email",
+            return_value=None,
+        ):
+            with patch(
+                "app.service.v1.authentication_service.AuthenticationService.generate_six_digit_code",
+                return_value="123456",
+            ):
+                response = await client.post(
+                    url="/api/v1/auth/register", json=password_change_register_input
+                )
+                assert response.status_code == 201
+
+                await client.post(
+                    url="/api/v1/auth/verify-account",
+                    json={
+                        "email": password_change_register_input.get("email"),
+                        "code": "123456",
+                    },
+                )
 
         # login
         login_response = await client.post(url="/api/v1/auth/login", json=login_payload)
@@ -266,11 +331,26 @@ class TestPasswordChange:
             "session_id": "00d000#00q00-0000-0100-0000-01011zzz1",
         }
         # register
+        with patch(
+            "app.service.v1.authentication_service.AuthenticationService.send_email",
+            return_value=None,
+        ):
+            with patch(
+                "app.service.v1.authentication_service.AuthenticationService.generate_six_digit_code",
+                return_value="123456",
+            ):
+                response = await client.post(
+                    url="/api/v1/auth/register", json=password_change_register_input
+                )
+                assert response.status_code == 201
 
-        response = await client.post(
-            url="/api/v1/auth/register", json=password_change_register_input
-        )
-        assert response.status_code == 201
+                await client.post(
+                    url="/api/v1/auth/verify-account",
+                    json={
+                        "email": password_change_register_input.get("email"),
+                        "code": "123456",
+                    },
+                )
 
         # login
         login_response = await client.post(url="/api/v1/auth/login", json=login_payload)

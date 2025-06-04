@@ -29,6 +29,9 @@ from app.dto.v1.authentication_dto import (
     PasswordResetInitResponseDto,
     PasswordResetResponseDto,
     PasswordResetRequestDto,
+    AccountVerificationResponseDto,
+    AccountVerificationRequestDto,
+    ResendVerificationCodeResponseDto,
 )
 from app.repository.v1.user_repository import (
     user_repository,
@@ -120,7 +123,8 @@ class AuthenticationService:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
             )
-
+        if not user_exists.email_verified:
+            raise HTTPException(status_code=403, detail="Email not verified yet")
         user_session_exists = await user_session_repository.fetch(
             None, None, schema.session_id, None, session=session
         )
@@ -374,6 +378,54 @@ class AuthenticationService:
         await redis_async.delete(key)
 
         return PasswordResetResponseDto()
+
+    async def verify_account(
+        self, schema: AccountVerificationRequestDto, session: AsyncSession
+    ) -> typing.Union[AccountVerificationResponseDto, None]:
+        """
+        Verifies user accounts.
+        """
+        key = f"chat:email-verification:{schema.email}"
+        async with get_redis_async() as redis_session:  # type: ignore
+            code = await redis_session.get(key)
+
+            if code != schema.code:
+                raise HTTPException(status_code=401, detail="Invalid credentials")
+            user = await user_repository.fetch_by_email(
+                email=schema.email, session=session
+            )
+            if not user:
+                raise HTTPException(status_code=401, detail="User not found")
+            await user_repository.verify_user(session=session, user=user)
+
+            await redis_session.delete(key)
+
+            await session.refresh(user)
+
+        return AccountVerificationResponseDto()
+
+    async def resend_verification_code(
+        self, schema: PasswordResetInitRequestDto, session: AsyncSession
+    ) -> typing.Union[ResendVerificationCodeResponseDto, None]:
+        """
+        Resends account verification code after 5 minutes
+        """
+        key = f"chat:email-verification:{schema.email}"
+        code = None
+        async with get_redis_async() as redis_session:  # type: ignore
+            code = await redis_session.get(key)
+            if code:
+                raise HTTPException(
+                    status_code=409, detail="Verification code is not expired"
+                )
+            user = await user_repository.fetch_by_email(schema.email, session=session)
+            if not user:
+                raise HTTPException(status_code=404, detail="User not found")
+
+            new_code = await self.generate_six_digit_code()
+            await redis_session.set(name=key, value=new_code, ex=(5 * 60))
+
+        return ResendVerificationCodeResponseDto()
 
     async def send_email(self, context: dict) -> None:
         """

@@ -22,15 +22,18 @@ class TestResetPassword:
         Test when invalid email, returns 404
         """
         # register
+        with patch(
+            "app.service.v1.authentication_service.AuthenticationService.send_email",
+            return_value=None,
+        ):
+            response = await client.post(
+                url="/api/v1/auth/password-reset-init", json={"email": "fake@gmail.com"}
+            )
+            assert response.status_code == 404
 
-        response = await client.post(
-            url="/api/v1/auth/password-reset-init", json={"email": "fake@gmail.com"}
-        )
-        assert response.status_code == 404
+            data = response.json()
 
-        data = response.json()
-
-        assert data["message"] == "Email not found"
+            assert data["message"] == "Email not found"
 
     @pytest.mark.asyncio
     async def test_b_when_email_code_missing_returns_401(
@@ -88,29 +91,33 @@ class TestResetPassword:
         Test when invalid email, returns 200
         """
         # register
-
-        response = await client.post(
-            url="/api/v1/auth/register", json=password_reset_register_input
-        )
-        assert response.status_code == 201
+        with patch(
+            "app.service.v1.authentication_service.AuthenticationService.send_email",
+            return_value=None,
+        ):
+            response = await client.post(
+                url="/api/v1/auth/register", json=password_reset_register_input
+            )
+            assert response.status_code == 201
 
         with patch(
             "app.service.v1.authentication_service.AuthenticationService.generate_six_digit_code",
             return_value="12345",
         ):
-            response = await client.post(
-                url="/api/v1/auth/password-reset-init",
-                json={"email": password_reset_register_input.get("email")},
-            )
-            assert response.status_code == 200
-
-            data = response.json()
-
-            assert data["message"] == "Reset code sent, To expire in 5 minutes"
             with patch(
                 "app.service.v1.authentication_service.AuthenticationService.send_email",
                 return_value=None,
             ):
+                response = await client.post(
+                    url="/api/v1/auth/password-reset-init",
+                    json={"email": password_reset_register_input.get("email")},
+                )
+                assert response.status_code == 200
+
+                data = response.json()
+
+                assert data["message"] == "Reset code sent, To expire in 5 minutes"
+
                 response = await client.post(
                     url="/api/v1/auth/password-reset",
                     json={

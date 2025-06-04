@@ -24,10 +24,10 @@ password_change_register_input = {
     "idempotency_key": "1234567z9012-1234-2w3e-4r5t-6y7u8i9z",
 }
 password_reset_register_input = {
-    "email": "johnson1@gtest.com",
+    "email": "johnson12@gtest.com",
     "password": "Johnson1234#",
     "confirm_password": "Johnson1234#",
-    "idempotency_key": "1234567z9012-1234-2w3e-4r5t-6y7u8i9z",
+    "idempotency_key": "1234567z90za2-1234-2w3e-4r5t-6y7u8i9z",
 }
 
 
