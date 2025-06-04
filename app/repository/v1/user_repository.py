@@ -229,5 +229,25 @@ class UserRepository:
         await session.refresh(user)
         return True
 
+    async def verify_user(self, session: AsyncSession, user: User) -> None:
+        """
+        Verifies user account.
+
+        Args:
+            user(User). The current user.
+            session(AsyncSession): The database async session object
+        Returns:
+            None
+        """
+        query = (
+            sa.update(self.model)
+            .where(self.model.email == user.email)
+            .values(email_verified=True)
+        )
+
+        await session.execute(query)
+
+        await session.commit()
+
 
 user_repository = UserRepository()
