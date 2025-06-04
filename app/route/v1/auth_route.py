@@ -24,6 +24,7 @@ from app.dto.v1.authentication_dto import (
     AccountVerificationRequestDto,
     AccountVerificationResponseDto,
     ResendVerificationCodeResponseDto,
+    AccountDeletionResponseDto,
 )
 from app.database.session import get_async_session
 from app.core.security import validate_logout_status, get_refresh_token_header
@@ -141,7 +142,7 @@ async def refresh_tokens(
     )
 
 
-@auth_router.post(
+@auth_router.patch(
     "/change-password",
     status_code=status.HTTP_200_OK,
     responses=responses,
@@ -196,7 +197,7 @@ async def initiate_password_reset(
     )
 
 
-@auth_router.post(
+@auth_router.put(
     "/password-reset",
     status_code=status.HTTP_200_OK,
     responses=responses,
@@ -221,7 +222,7 @@ async def password_reset(
     return await authentication_service.reset_password(session=session, schema=schema)
 
 
-@auth_router.post(
+@auth_router.patch(
     "/verify-account",
     status_code=status.HTTP_200_OK,
     responses=responses,
@@ -270,4 +271,29 @@ async def resend_verification_code(
     """
     return await authentication_service.resend_verification_code(
         session=session, schema=schema
+    )
+
+
+@auth_router.post(
+    "/account-deletion",
+    status_code=status.HTTP_200_OK,
+    responses=responses,
+    response_model=AccountDeletionResponseDto,
+    dependencies=[Depends(validate_logout_status)],
+)
+async def account_deletion(
+    request: Request,
+    session: typing.Annotated[AsyncSession, Depends(get_async_session)],
+) -> typing.Union[AccountDeletionResponseDto, None]:
+    """
+    Delets User account.
+
+    Return:
+        Success message upon successful deletion
+    Raises:
+        401 Unauthorized.
+        500 Internal server error
+    """
+    return await authentication_service.account_deletion(
+        session=session, request=request
     )
