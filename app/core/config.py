@@ -8,6 +8,8 @@ class Settings(BaseSettings):
 
     mode: str
 
+    port: str
+
     db_url_sync: str
     db_url_test: str
     db_url_async: str
