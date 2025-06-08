@@ -43,23 +43,8 @@ invitation_status_enum = postgresql.ENUM(
 )
 
 message_status_enum = postgresql.ENUM(
-    "read",
-    "unread",
     "delivered",
-    "failed",
     "sent",
-    "deleted",
-    "edited",
     name="message_status_enum",
     create_type=False,
 )
-
-
-__all__ = [
-    "user_online_status_enum",
-    "user_status_enum",
-    "room_type_enum",
-    "chat_type_enum",
-    "invitation_status_enum",
-    "message_status_enum",
-]
