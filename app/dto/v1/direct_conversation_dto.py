@@ -5,7 +5,7 @@ Direct conversation dto
 from typing import List, Optional
 import json
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_validator, ConfigDict
 from bleach import clean
 
 
@@ -24,6 +24,8 @@ class ConversationBaseDto(BaseModel):
     firstname: Optional[str] = Field(default=None, examples=["Johnson"])
     last_message: Optional[str] = Field(default=None, examples=["Hello Johnson"])
     unread_message_count: int = Field(default=0, examples=["Hello Johnson"])
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 # +++++++++++++++++++++++++++++++++++++++ all conversations +++++++++++++++++++++++++++++++++++++++++
