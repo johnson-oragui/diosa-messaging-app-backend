@@ -8,6 +8,8 @@ class Settings(BaseSettings):
 
     mode: str
 
+    port: str
+
     db_url_sync: str
     db_url_test: str
     db_url_async: str
@@ -48,6 +50,10 @@ class Settings(BaseSettings):
     celery_broker_url_test: str
     celery_result_backend: str
     celery_result_backend_test: str
+
+    cloudinary_api_key: str
+    cloudinary_api_secret: str
+    cloudinary_api_name: str
 
     redis_url: str
 

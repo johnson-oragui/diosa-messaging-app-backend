@@ -15,6 +15,8 @@ from app.models.enums import user_online_status_enum, user_status_enum
 
 
 from app.models.user_session import UserSession
+from app.models.direct_message import DirectMessage
+from app.models.direct_conversation import DirectConversation
 
 password_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -52,6 +54,35 @@ class User(ModelMixin, Base):
 
     sessions: Mapped[List["UserSession"]] = relationship(
         "UserSession", back_populates="user", cascade="all"
+    )
+
+    direct_messages: Mapped[List["DirectMessage"]] = relationship(
+        "DirectMessage",
+        back_populates="sender",
+        passive_deletes=True,
+        foreign_keys=[DirectMessage.sender_id],
+        cascade="all, delete-orphan",
+    )
+    received_direct_messages: Mapped[List["DirectMessage"]] = relationship(
+        "DirectMessage",
+        back_populates="recipient",
+        passive_deletes=True,
+        foreign_keys=[DirectMessage.recipient_id],
+        cascade="all, delete-orphan",
+    )
+
+    initiated_conversations: Mapped["DirectConversation"] = relationship(
+        "DirectConversation",
+        foreign_keys=[DirectConversation.sender_id],
+        back_populates="sender",
+        cascade="all",
+    )
+
+    received_conversations: Mapped["DirectConversation"] = relationship(
+        "DirectConversation",
+        foreign_keys=[DirectConversation.recipient_id],
+        back_populates="recipient",
+        cascade="all",
     )
 
     # ------------------ methods ------------------
