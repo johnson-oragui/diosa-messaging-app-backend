@@ -110,7 +110,7 @@ app.add_exception_handler(Exception, exception)
 if __name__ == "__main__":
     uvicorn.run(
         "main:app",
-        port=7000,
+        port=int(settings.port or 7000),
         reload=True,
         timeout_keep_alive=60,
     )
