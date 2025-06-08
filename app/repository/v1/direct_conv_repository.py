@@ -149,7 +149,10 @@ class DirectConversationRepository:
             .where(
                 DirectMessage.conversation_id == DirectConversation.id,
                 DirectMessage.read_at.is_(None),
-                DirectMessage.recipient_id == user_id,
+                sa.or_(
+                    DirectMessage.recipient_id == user_id,
+                    DirectMessage.sender_id == user_id,
+                ),
             )
             .group_by(DirectMessage.conversation_id)
             .correlate(
@@ -162,11 +165,11 @@ class DirectConversationRepository:
         stmt = (
             sa.select(
                 DirectConversation.id.label("conversation_id"),
-                User.id.label("other_user_id"),
-                User.first_name.label("other_user_first_name"),
-                User.profile_photo.label("other_user_profile_photo"),
+                User.id.label("user_id"),
+                User.first_name.label("firstname"),
+                User.profile_photo.label("profile_photo"),
                 DirectConversation.updated_at.label("updated_at"),
-                latest_message_subquery.c.content,
+                latest_message_subquery.c.content.label("last_message"),
                 sa.func.coalesce(unread_message_count_subquery.c.unread_count, 0).label(
                     "unread_message_count"
                 ),
