@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     celery_result_backend: str
     celery_result_backend_test: str
 
+    cloudinary_api_key: str
+    cloudinary_api_secret: str
+    cloudinary_api_name: str
+
     redis_url: str
 
     model_config: SettingsConfigDict = {  # type: ignore
