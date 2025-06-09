@@ -98,7 +98,7 @@ class DirectMessageRepository:
         order: str,
         session: AsyncSession,
         attributes: typing.List[typing.Union[str, None]] = [],
-    ) -> typing.Sequence[typing.Optional[DirectMessage]]:
+    ) -> typing.Tuple[typing.Sequence[typing.Optional[DirectMessage]], int]:
         """
         Retrieves all messages.
 
@@ -121,16 +121,10 @@ class DirectMessageRepository:
                 if isinstance(attr, str) and hasattr(self.model, attr)
             ]
             if not selected_fields:
-                return []
-            query = (
-                sa.select(*selected_fields)
-                .where(
-                    self.model.conversation_id == conversation_id,
-                    sa.or_(
-                        self.model.sender_id == user_id,
-                        self.model.recipient_id == user_id,
-                    ),
-                    self.model.status.is_not("deleted"),
+                return [], 0
+            query = sa.select(*selected_fields).where(
+                self.model.conversation_id == conversation_id,
+                sa.or_(
                     sa.and_(
                         self.model.is_deleted_for_sender.is_(False),
                         self.model.sender_id == user_id,
@@ -139,22 +133,21 @@ class DirectMessageRepository:
                         self.model.is_deleted_for_recipient.is_(False),
                         self.model.recipient_id == user_id,
                     ),
-                )
-                .offset(offset)
-                .order_by(order_by(self.model.created_at))
+                ),
             )
 
+            count_stmt = sa.select(sa.func.count()).select_from(query.subquery())
+            count_result = await session.execute(count_stmt)
+            total_count = count_result.scalar_one() or 0
+
+            query = query.offset(offset).order_by(order_by(self.model.created_at))
+
             result = (await session.execute(query)).scalars().all()
-            return result
-        query = (
-            sa.select(self.model)
-            .where(
-                self.model.conversation_id == conversation_id,
-                sa.or_(
-                    self.model.sender_id == user_id,
-                    self.model.recipient_id == user_id,
-                ),
-                self.model.status.is_not("deleted"),
+
+            return (result, total_count)
+        query = sa.select(self.model).where(
+            self.model.conversation_id == conversation_id,
+            sa.or_(
                 sa.and_(
                     self.model.is_deleted_for_sender.is_(False),
                     self.model.sender_id == user_id,
@@ -163,13 +156,18 @@ class DirectMessageRepository:
                     self.model.is_deleted_for_recipient.is_(False),
                     self.model.recipient_id == user_id,
                 ),
-            )
-            .offset(offset)
-            .order_by(order_by(self.model.created_at))
+            ),
         )
 
+        count_stmt = sa.select(sa.func.count()).select_from(query.subquery())
+        count_result = await session.execute(count_stmt)
+        total_count = count_result.scalar_one() or 0
+
+        query = query.offset(offset).order_by(order_by(self.model.created_at))
+
         result = (await session.execute(query)).scalars().all()
-        return result
+
+        return (result, total_count)
 
     async def delete_for_sender(
         self,
