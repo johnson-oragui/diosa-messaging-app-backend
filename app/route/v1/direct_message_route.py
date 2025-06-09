@@ -3,16 +3,20 @@ Direct Message Route Module
 """
 
 import typing
-from fastapi import APIRouter, status, Request, Depends
+from fastapi import APIRouter, status, Request, Depends, Query
 
 from app.utils.responses import responses
 from app.service.v1.direct_message_service import direct_message_service, AsyncSession
-from app.dto.v1.direct_message_dto import SendMessageDto, SendMessageResponseDto
+from app.dto.v1.direct_message_dto import (
+    SendMessageDto,
+    SendMessageResponseDto,
+    AllMessagesResponseDto,
+)
 from app.database.session import get_async_session
 from app.core.security import validate_logout_status
 
 
-direct_message_router = APIRouter(prefix="/direct-messages", tags=["DIRECT MESSAGE"])
+direct_message_router = APIRouter(prefix="/direct-messages", tags=["DIRECT MESSAGES"])
 
 
 @direct_message_router.post(
@@ -41,4 +45,41 @@ async def send_new_message(
     """
     return await direct_message_service.send_message(
         schema=schema, session=session, request=request
+    )
+
+
+@direct_message_router.get(
+    "",
+    status_code=status.HTTP_200_OK,
+    responses=responses,
+    response_model=AllMessagesResponseDto,
+    dependencies=[Depends(validate_logout_status)],
+)
+async def retrieve_messages(
+    request: Request,
+    conversation_id: str,
+    session: typing.Annotated[AsyncSession, Depends(get_async_session)],
+    page: int = Query(default=1, ge=1, description="The current page"),
+    limit: int = Query(
+        default=50, ge=1, le=50, description="The size of messages per page"
+    ),
+) -> typing.Optional[AllMessagesResponseDto]:
+    """
+    Retrieve messages of a conversation.
+
+    Return:
+        Success message upon success
+    Raises:
+        422
+        500
+        409
+        401
+        404
+    """
+    return await direct_message_service.retrieve_messages(
+        page=page,
+        limit=limit,
+        conversation_id=conversation_id,
+        session=session,
+        request=request,
     )
