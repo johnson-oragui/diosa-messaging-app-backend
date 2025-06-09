@@ -3,6 +3,7 @@ DirectMessageService module
 """
 
 import typing
+import math
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import Request, HTTPException, status
@@ -17,6 +18,7 @@ from app.dto.v1.direct_message_dto import (
     SendMessageDto,
     SendMessageResponseDto,
     MessageBaseDto,
+    AllMessagesResponseDto,
 )
 from app.utils.task_logger import create_logger
 
@@ -114,6 +116,58 @@ class DirectMessageService:
 
         message_base = MessageBaseDto.model_validate(new_message, from_attributes=True)
         return SendMessageResponseDto(data=message_base)
+
+    async def retrieve_messages(
+        self,
+        request: Request,
+        page: int,
+        limit: int,
+        session: AsyncSession,
+        conversation_id: str,
+    ) -> typing.Union[AllMessagesResponseDto, None]:
+        """
+        Retrieves all messages.
+
+        Args:
+            request (Request): The request object.
+            session (AsyncSession): The database async session object.
+            page (int): The current page.
+            limit (int): The number of messages per page
+            conversation_id (str): The conversation for the messages
+        Returns:
+            AllMessagesResponseDto (pydantic): The response payload
+        """
+        claims: dict = request.state.claims
+        current_user_id = claims.get("user_id", "")
+        offset = page * limit - limit
+
+        conversation_exists = await direct_conversation_repository.fetch_by_id(
+            conversation_id=conversation_id, session=session
+        )
+        if not conversation_exists:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found"
+            )
+
+        all_messages, count = await direct_message_repository.fetch_all(
+            conversation_id=conversation_id,
+            user_id=current_user_id,
+            order="desc",
+            session=session,
+            offset=offset,
+        )
+
+        return AllMessagesResponseDto(
+            page=page,
+            limit=limit,
+            total_pages=0 if count == 0 else math.ceil(count / limit),
+            total_messages=count,
+            data=[
+                MessageBaseDto.model_validate(message, from_attributes=True)
+                for message in all_messages
+                if message
+            ],
+        )
 
 
 direct_message_service = DirectMessageService()
