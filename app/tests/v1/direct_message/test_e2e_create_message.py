@@ -9,9 +9,9 @@ from httpx import AsyncClient
 from app.tests.v1.direct_message import register_input, register_input_2
 
 
-class TestDirectMessage:
+class TestCreateDirectMessage:
     """
-    Test direct message route
+    Test create direct message route
     """
 
     @pytest.mark.asyncio
