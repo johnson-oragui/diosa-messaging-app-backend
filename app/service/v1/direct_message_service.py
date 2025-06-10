@@ -4,6 +4,7 @@ DirectMessageService module
 
 import typing
 import math
+from datetime import timezone, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import Request, HTTPException, status
@@ -19,6 +20,8 @@ from app.dto.v1.direct_message_dto import (
     SendMessageResponseDto,
     MessageBaseDto,
     AllMessagesResponseDto,
+    UpdateMessageDto,
+    UpdateMessageResponseDto,
 )
 from app.utils.task_logger import create_logger
 
@@ -167,6 +170,77 @@ class DirectMessageService:
                 for message in all_messages
                 if message
             ],
+        )
+
+    async def update_message(
+        self,
+        request: Request,
+        session: AsyncSession,
+        schema: UpdateMessageDto,
+    ) -> typing.Union[UpdateMessageResponseDto, None]:
+        """
+        Updates a message.
+
+        Args:
+            request (Request): The request object.
+            session (AsyncSession): The database async session object.
+            schema (pydantic): The request payload
+        Returns:
+            UpdateMessageResponseDto (pydantic): The response payload
+        """
+        claims: dict = request.state.claims
+        current_user_id = claims.get("user_id", "")
+
+        message_exists = await direct_message_repository.fetch(
+            session=session,
+            message_id=schema.message_id,
+            conversation_id=schema.conversation_id,
+        )
+        if not message_exists:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Invalid message id",
+            )
+        if message_exists.sender_id != current_user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User does not have enough access",
+            )
+        if (
+            message_exists
+            and message_exists.sender_id == current_user_id
+            and message_exists.is_deleted_for_sender
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Message not found."
+            )
+        if (
+            message_exists
+            and message_exists.recipient_id == current_user_id
+            and message_exists.is_deleted_for_recipient
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Message not found."
+            )
+        now = datetime.now(timezone.utc)
+
+        if (
+            message_exists.created_at.replace(tzinfo=timezone.utc)
+            + timedelta(minutes=15)
+        ) < (now + timedelta(seconds=0)):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot update after 15 minutes of sending a message",
+            )
+        updated_message = await direct_message_repository.update(
+            user_id=current_user_id,
+            session=session,
+            content=schema.message,
+            message=message_exists,
+        )
+
+        return UpdateMessageResponseDto(
+            data=MessageBaseDto.model_validate(updated_message, from_attributes=True)
         )
 
 
