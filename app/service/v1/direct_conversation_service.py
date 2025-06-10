@@ -30,7 +30,15 @@ class DirectConversationService:
         self, request: Request, session: AsyncSession, page: int, limit: int
     ) -> typing.Union[AllConversationsResponseDto, None]:
         """
-        Retrieves all conversations
+        Retrieves all conversations.
+
+        Args:
+            request (Request): The request object.
+            session (AsyncSession): The database async session object.
+            page (int): The current page.
+            limit (int): The number of conversations per page
+        Returns:
+            AllConversationsResponseDto (pydantic): The response payload
         """
         claims: dict = request.state.claims
         current_user_id = claims.get("user_id", "")
