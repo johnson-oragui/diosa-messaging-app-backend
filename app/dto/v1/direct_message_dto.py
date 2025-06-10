@@ -186,7 +186,12 @@ class UpdateMessageDto(BaseModel):
     Update message schema
     """
 
-    conversation_id: str = Field(examples=["123124-1242-99999-5645765"])
+    conversation_id: Annotated[
+        str, StringConstraints(min_length=1, max_length=1000)
+    ] = Field(examples=["123124-1242-99999-5645765"])
+    message_id: Annotated[str, StringConstraints(min_length=1, max_length=1000)] = (
+        Field(examples=["123124-1242-99999-5645765"])
+    )
 
     message: Annotated[str, StringConstraints(min_length=1, strip_whitespace=True)] = (
         Field(examples=["Hello"])
