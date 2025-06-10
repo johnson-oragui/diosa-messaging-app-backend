@@ -11,6 +11,8 @@ from app.dto.v1.direct_message_dto import (
     SendMessageDto,
     SendMessageResponseDto,
     AllMessagesResponseDto,
+    UpdateMessageResponseDto,
+    UpdateMessageDto,
 )
 from app.database.session import get_async_session
 from app.core.security import validate_logout_status
@@ -80,6 +82,38 @@ async def retrieve_messages(
         page=page,
         limit=limit,
         conversation_id=conversation_id,
+        session=session,
+        request=request,
+    )
+
+
+@direct_message_router.patch(
+    "",
+    status_code=status.HTTP_200_OK,
+    responses=responses,
+    response_model=UpdateMessageResponseDto,
+    dependencies=[Depends(validate_logout_status)],
+)
+async def update_message(
+    request: Request,
+    schema: UpdateMessageDto,
+    session: typing.Annotated[AsyncSession, Depends(get_async_session)],
+) -> typing.Optional[UpdateMessageResponseDto]:
+    """
+    Updates a message of a conversation.
+    Update is allowed within 15 minutes of sending the message
+
+    Return:
+        Success message upon success
+    Raises:
+        422
+        500
+        409
+        401
+        404
+    """
+    return await direct_message_service.update_message(
+        schema=schema,
         session=session,
         request=request,
     )

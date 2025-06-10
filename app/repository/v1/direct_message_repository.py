@@ -64,6 +64,7 @@ class DirectMessageRepository:
         session: AsyncSession,
         message_id: str,
         attributes: typing.List[typing.Union[str, None]] = [],
+        conversation_id: typing.Optional[str] = None,
     ) -> typing.Union[DirectMessage, None]:
         """
         Retrieves a message.
@@ -84,9 +85,13 @@ class DirectMessageRepository:
             if not selected_fields:
                 return None
             query = sa.select(*selected_fields).where(self.model.id == message_id)
+            if conversation_id:
+                query = query.where(self.model.conversation_id == conversation_id)
             return (await session.execute(query)).scalar_one_or_none()
 
         query = sa.select(self.model).where(self.model.id == message_id)
+        if conversation_id:
+            query = query.where(self.model.conversation_id == conversation_id)
 
         return (await session.execute(query)).scalar_one_or_none()
 
@@ -258,17 +263,16 @@ class DirectMessageRepository:
 
     async def update(
         self,
-        conversation_id: str,
-        message_id: str,
         user_id: str,
         content: str,
         session: AsyncSession,
-    ) -> int:
+        message: DirectMessage,
+    ) -> DirectMessage:
         """
         Updates a message.
         Args:
-            conversation_id(str): The id of the converstion
-            message_id(str): The id of the message
+            message(DirectMessage): The message to update
+            contest(str): The new message content
             user_id(str): The id of the current user.
             session (AsyncSession): The database async session object.
         Returns:
@@ -277,16 +281,17 @@ class DirectMessageRepository:
         query = (
             sa.update(self.model)
             .where(
-                self.model.conversation_id == conversation_id,
-                self.model.id == message_id,
+                self.model.conversation_id == message.conversation_id,
+                self.model.id == message.id,
                 self.model.sender_id == user_id,
             )
             .values(content=content, is_edited=True)
         )
 
-        result = await session.execute(query)
+        await session.execute(query)
         await session.commit()
-        return result.rowcount
+        await session.refresh(message)
+        return message
 
 
 direct_message_repository = DirectMessageRepository()
