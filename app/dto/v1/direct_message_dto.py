@@ -134,9 +134,9 @@ class DeleteMessageDto(BaseModel):
     Schema for message delete
     """
 
-    message_ids: List[str] = Field(
-        examples=[["12312432-42345435-4564645", "1234324-23453-53454-645"]]
-    )
+    message_ids: List[
+        Annotated[str, StringConstraints(min_length=10, max_length=60)]
+    ] = Field(examples=[["12312432-42345435-4564645", "1234324-23453-53454-645"]])
     delete_for_both: bool = Field(default=False, examples=[False])
 
     @model_validator(mode="before")
@@ -147,16 +147,12 @@ class DeleteMessageDto(BaseModel):
         """
         if isinstance(values, bytes):
             values = json.loads(values)
+        message_ids: list | None = values.get("message_ids", None)
 
-        message_ids = values.get("message_ids", [])
+        if message_ids:
+            if len(message_ids) > 15:
+                raise ValueError("can only delete 15 messages at a time")
 
-        if not isinstance(message_ids, list):
-            raise ValueError("message_ids must be of type list/array")
-        validated_message_ids = []
-        for id_ in message_ids:
-            validated_message_ids.append(clean(id_))
-
-        values["message_ids"] = validated_message_ids
         return values
 
 
