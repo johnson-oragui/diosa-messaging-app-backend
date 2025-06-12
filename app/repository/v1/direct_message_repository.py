@@ -191,11 +191,9 @@ class DirectMessageRepository:
         Returns:
             int
         """
-        now = datetime.now(timezone.utc)
         query = sa.update(self.model).where(
             self.model.sender_id == user_id,
             self.model.is_deleted_for_sender.is_(False),
-            self.model.created_at + timedelta(minutes=15) > now,
         )
         if message_id:
             query = query.where(self.model.id == message_id)
@@ -203,8 +201,8 @@ class DirectMessageRepository:
             query = query.where(self.model.conversation_id == conversation_id)
         query = query.values(is_deleted_for_sender=True)
 
-        result = await session.execute(query.returning(self.model.id))
-        return 1 if result.scalar_one() else 0
+        result = await session.execute(query)
+        return result.rowcount
 
     async def delete_for_all(
         self,
