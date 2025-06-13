@@ -17,6 +17,9 @@ from app.models.enums import user_online_status_enum, user_status_enum
 from app.models.user_session import UserSession
 from app.models.direct_message import DirectMessage
 from app.models.direct_conversation import DirectConversation
+from app.models.room import Room
+from app.models.room_member import RoomMember
+from app.models.room_invitation import RoomInvitation
 
 password_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -71,18 +74,48 @@ class User(ModelMixin, Base):
         cascade="all, delete-orphan",
     )
 
-    initiated_conversations: Mapped["DirectConversation"] = relationship(
+    initiated_conversations: Mapped[List["DirectConversation"]] = relationship(
         "DirectConversation",
         foreign_keys=[DirectConversation.sender_id],
         back_populates="sender",
         cascade="all",
     )
 
-    received_conversations: Mapped["DirectConversation"] = relationship(
+    received_conversations: Mapped[List["DirectConversation"]] = relationship(
         "DirectConversation",
         foreign_keys=[DirectConversation.recipient_id],
         back_populates="recipient",
         cascade="all",
+    )
+
+    created_rooms: Mapped[List["Room"]] = relationship(
+        "Room",
+        back_populates="owner",
+        passive_deletes=True,
+        foreign_keys=[Room.owner_id],
+    )
+    membered_rooms: Mapped[List["RoomMember"]] = relationship(
+        "RoomMember", back_populates="member", uselist=True
+    )
+
+    sent_invitations: Mapped[List["RoomInvitation"]] = relationship(
+        "RoomInvitation",
+        foreign_keys=[RoomInvitation.inviter_id],
+        back_populates="inviter",
+        uselist=True,
+    )
+
+    sent_invitations: Mapped[List["RoomInvitation"]] = relationship(
+        "RoomInvitation",
+        foreign_keys=[RoomInvitation.inviter_id],
+        back_populates="inviter",
+        uselist=True,
+    )
+    received_invitations: Mapped[List["RoomInvitation"]] = relationship(
+        "RoomInvitation",
+        foreign_keys=[RoomInvitation.invitee_id],
+        back_populates="invitee",
+        uselist=True,
     )
 
     # ------------------ methods ------------------
