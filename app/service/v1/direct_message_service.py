@@ -22,6 +22,8 @@ from app.dto.v1.direct_message_dto import (
     AllMessagesResponseDto,
     UpdateMessageDto,
     UpdateMessageResponseDto,
+    DeleteMessageResponseDto,
+    DeleteMessageDto,
 )
 from app.utils.task_logger import create_logger
 
@@ -242,6 +244,64 @@ class DirectMessageService:
         return UpdateMessageResponseDto(
             data=MessageBaseDto.model_validate(updated_message, from_attributes=True)
         )
+
+    async def delete_messages(
+        self, schema: DeleteMessageDto, session: AsyncSession, request: Request
+    ) -> typing.Union[DeleteMessageResponseDto, None]:
+        """
+        Deletes messages.
+
+        Args:
+            request (Request): The request object.
+            session (AsyncSession): The database async session object.
+            schema (pydantic): The request payload
+        Returns:
+            DeleteMessageResponseDto (pydantic): The response payload
+        """
+        claims: dict = request.state.claims
+
+        current_user_id = claims.get("user_id", "")
+
+        if not schema.delete_for_both:
+            for message_id in schema.message_ids:
+                message_exists = await direct_message_repository.fetch(
+                    session=session, message_id=message_id, conversation_id=None
+                )
+                if not message_exists:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=f"Message with id {message_id} not found",
+                    )
+
+                affected_row = await direct_message_repository.delete_for_sender(
+                    session=session,
+                    conversation_id=None,
+                    message_id=message_id,
+                    user_id=current_user_id,
+                )
+
+        else:
+            for message_id in schema.message_ids:
+                message_exists = await direct_message_repository.fetch(
+                    session=session, message_id=message_id, conversation_id=None
+                )
+                if not message_exists:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=f"Message with id {message_id} not found",
+                    )
+
+                affected_row = await direct_message_repository.delete_for_all(
+                    session=session, message_id=message_id, user_id=current_user_id
+                )
+                if affected_row < 1:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Cannot delete message after 15 minutes",
+                    )
+        await session.commit()
+
+        return DeleteMessageResponseDto()
 
 
 direct_message_service = DirectMessageService()
