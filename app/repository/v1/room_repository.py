@@ -126,15 +126,15 @@ class RoomRepository:
         query = (
             sa.select(self.model)
             .outerjoin(RoomMember, RoomMember.room_id == self.model.id)
-            .where(RoomMember.member_id == owner_id)
-            .offset(offset)
-            .limit(limit)
+            .where(RoomMember.member_id == owner_id, RoomMember.left_room.is_(False))
         )
         count = (
             await session.execute(
                 sa.select(sa.func.count()).select_from(query.subquery())
             )
         ).scalar_one_or_none() or 0
+
+        query = query.offset(offset).limit(limit)
         return (await session.execute(query)).scalars().all(), count
 
 
