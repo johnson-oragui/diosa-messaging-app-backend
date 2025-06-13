@@ -2,7 +2,7 @@
 Room DTOs
 """
 
-from typing import Annotated, Optional
+from typing import Annotated, Optional, List
 from pydantic import BaseModel, StringConstraints, Field, HttpUrl, ConfigDict
 
 
@@ -55,3 +55,21 @@ class CreateRoomResponseDto(BaseModel):
     )
     status_code: int = Field(default=201, examples=[201])
     data: RoomBaseDto
+
+
+# ++++++++++++++++++++++++++++ Retrieve rooms ++++++++++++++++++++++++++
+class RetrieveResponseDto(BaseModel):
+    """
+    Retrieve room
+    """
+
+    message: str = Field(
+        default="Rooms retrieved successfully.",
+        examples=["Rooms retrieved successfully."],
+    )
+    status_code: int = Field(default=201, examples=[200])
+    page: int = Field(examples=[1])
+    limit: int = Field(examples=[10])
+    total_pages: int = Field(examples=[1])
+    total_rooms: int = Field(examples=[10])
+    data: List[Optional[RoomBaseDto]]
