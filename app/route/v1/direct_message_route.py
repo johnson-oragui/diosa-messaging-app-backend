@@ -13,6 +13,8 @@ from app.dto.v1.direct_message_dto import (
     AllMessagesResponseDto,
     UpdateMessageResponseDto,
     UpdateMessageDto,
+    DeleteMessageDto,
+    DeleteMessageResponseDto,
 )
 from app.database.session import get_async_session
 from app.core.security import validate_logout_status
@@ -113,6 +115,38 @@ async def update_message(
         404
     """
     return await direct_message_service.update_message(
+        schema=schema,
+        session=session,
+        request=request,
+    )
+
+
+@direct_message_router.put(
+    "",
+    status_code=status.HTTP_200_OK,
+    responses=responses,
+    response_model=DeleteMessageResponseDto,
+    dependencies=[Depends(validate_logout_status)],
+)
+async def delete_messages(
+    request: Request,
+    schema: DeleteMessageDto,
+    session: typing.Annotated[AsyncSession, Depends(get_async_session)],
+) -> typing.Optional[DeleteMessageResponseDto]:
+    """
+    Deletes Messages.
+    Delete is allowed within 15 minutes of sending the message
+
+    Return:
+        Success message upon success
+    Raises:
+        422
+        500
+        409
+        401
+        404
+    """
+    return await direct_message_service.delete_messages(
         schema=schema,
         session=session,
         request=request,

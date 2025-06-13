@@ -176,11 +176,11 @@ class DirectMessageRepository:
 
     async def delete_for_sender(
         self,
-        conversation_id: str,
+        conversation_id: typing.Union[str, None],
         user_id: str,
         message_id: typing.Union[str, None],
         session: AsyncSession,
-    ) -> None:
+    ) -> int:
         """
         Deletes message for sender.
         Args:
@@ -189,50 +189,25 @@ class DirectMessageRepository:
             user_id(str): The id of the current user.
             session (AsyncSession): The database async session object.
         Returns:
-            None
+            int
         """
         query = sa.update(self.model).where(
-            self.model.conversation_id == conversation_id,
             self.model.sender_id == user_id,
+            self.model.is_deleted_for_sender.is_(False),
         )
         if message_id:
             query = query.where(self.model.id == message_id)
+        if conversation_id:
+            query = query.where(self.model.conversation_id == conversation_id)
         query = query.values(is_deleted_for_sender=True)
 
-        await session.execute(query)
-
-    async def delete_for_recipient(
-        self,
-        conversation_id: str,
-        user_id: str,
-        message_id: typing.Union[str, None],
-        session: AsyncSession,
-    ) -> None:
-        """
-        Deletes message for recipient.
-        Args:
-            conversation_id(str): The id of the converstion
-            message_id(str): The id of the message
-            user_id(str): The id of the current user.
-            session (AsyncSession): The database async session object.
-        Returns:
-            None
-        """
-        query = sa.update(self.model).where(
-            self.model.conversation_id == conversation_id,
-            self.model.recipient_id == user_id,
-        )
-        if message_id:
-            query = query.where(self.model.id == message_id)
-        query = query.values(is_deleted_for_recipient=True)
-
-        await session.execute(query)
+        result = await session.execute(query)
+        return result.rowcount
 
     async def delete_for_all(
         self,
-        conversation_id: str,
         user_id: str,
-        message_ids: typing.List[str],
+        message_id: str,
         session: AsyncSession,
     ) -> int:
         """
@@ -250,15 +225,13 @@ class DirectMessageRepository:
             sa.update(self.model)
             .where(
                 self.model.created_at + timedelta(minutes=15) > now,
-                self.model.conversation_id == conversation_id,
-                self.model.recipient_id == user_id,
-                self.model.id.in_(message_ids),
+                self.model.sender_id == user_id,
+                self.model.id == message_id,
             )
-            .values(status="deleted")
+            .values(is_deleted_for_sender=True, is_deleted_for_recipient=True)
         )
 
         result = await session.execute(query)
-        await session.commit()
         return result.rowcount
 
     async def update(
