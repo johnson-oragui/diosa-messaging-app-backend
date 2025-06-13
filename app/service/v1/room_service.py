@@ -13,7 +13,10 @@ from app.dto.v1.room_dto import (
     CreateRoomRequestDto,
     CreateRoomResponseDto,
     RetrieveResponseDto,
+    UpdateResponseDto,
+    UpdateRoomRequestDto,
 )
+from app.repository.v1.room_member_repository import room_member_repository
 
 
 class RoomService:
@@ -78,6 +81,59 @@ class RoomService:
             total_pages=count if count == 0 else math.ceil(count / limit),
             total_rooms=count,
         )
+
+    async def update_room(
+        self, schema: UpdateRoomRequestDto, session: AsyncSession, request: Request
+    ) -> typing.Union[None, UpdateResponseDto]:
+        """
+        Updates a room.
+
+        Args:
+            schema (pydantic): The request payload.
+            session (AsyncSession): The database async session object.
+            request (Request): The request object.
+        Returns:
+            UpdateResponseDto: response payload
+        """
+        claims: dict = request.state.claims
+        current_user_id = claims.get("user_id", "")
+
+        room_exists = await room_repository.fetch(
+            room_id=schema.room_id, session=session
+        )
+        if not room_exists:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Room not found")
+
+        is_member = await room_member_repository.fetch(
+            room_id=schema.room_id, member_id=current_user_id, session=session
+        )
+        if not is_member:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User is not a member of this room",
+            )
+        if not is_member.is_admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User is not an admin",
+            )
+        if is_member.left_room:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="User already left the room",
+            )
+        await room_repository.update(
+            session=session,
+            room_id=schema.room_id,
+            allow_admin_messages_only=schema.allow_admin_messages_only,
+            is_private=schema.is_private,
+            auto_commit=True,
+            name=schema.name,
+            room_icon=str(schema.room_icon),
+            messages_delete_able=schema.messages_delete_able,
+        )
+
+        return UpdateResponseDto()
 
 
 room_service = RoomService()
