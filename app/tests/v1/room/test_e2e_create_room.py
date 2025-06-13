@@ -20,7 +20,7 @@ class TestCreateRoom:
         self, test_setup: None, client: AsyncClient
     ):
         """
-        Tests user can delete message successfully
+        Tests user can create room successfully
         """
         login_payload = {
             "password": register_input.get("password"),
