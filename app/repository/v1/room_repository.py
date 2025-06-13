@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import sqlalchemy as sa
 
 from app.models.room import Room
+from app.models.room_member import RoomMember
 
 
 class RoomRepository:
@@ -55,7 +56,8 @@ class RoomRepository:
             messages_delete_able=messages_delete_able,
             allow_admin_messages_only=allow_admin_messages_only,
         )
-        session.add(new_room)
+        new_room_member = RoomMember(member_id=owner_id, room=new_room, is_admin=True)
+        session.add_all([new_room, new_room_member])
 
         if auto_commit:
             await session.commit()
@@ -108,20 +110,32 @@ class RoomRepository:
         ).scalar_one_or_none()
 
     async def fetch_all(
-        self, owner_id: str, session: AsyncSession
-    ) -> typing.Sequence[typing.Optional[Room]]:
+        self, owner_id: str, session: AsyncSession, offset: int, limit: int
+    ) -> typing.Tuple[typing.Sequence[typing.Optional[Room]], int]:
         """
-        Retrieves all rooms
+        Retrieves all rooms.
+
+        Args:
+            owner_id (str): The id of the room member
+            session (AsyncSession): The database async session object.
+            offset (int): The number of rooms to skip
+            limit (int): The number of rooms per fetch.
+        Returns:
+            Optional[List[Room]]
         """
-        return (
-            (
-                await session.execute(
-                    sa.select(self.model).where(self.model.owner_id == owner_id)
-                )
-            )
-            .scalars()
-            .all()
+        query = (
+            sa.select(self.model)
+            .outerjoin(RoomMember, RoomMember.room_id == self.model.id)
+            .where(RoomMember.member_id == owner_id)
+            .offset(offset)
+            .limit(limit)
         )
+        count = (
+            await session.execute(
+                sa.select(sa.func.count()).select_from(query.subquery())
+            )
+        ).scalar_one_or_none() or 0
+        return (await session.execute(query)).scalars().all(), count
 
 
 room_repository = RoomRepository()

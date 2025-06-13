@@ -1,5 +1,5 @@
 """
-Test Create Room module
+Test Fetch Room module
 """
 
 from unittest.mock import patch
@@ -10,22 +10,22 @@ from httpx import AsyncClient
 from app.tests.v1.direct_message import register_input
 
 
-class TestCreateRoom:
+class TestFetchRoom:
     """
-    Test Create Room route
+    Test Fetch Room route
     """
 
     @pytest.mark.asyncio
-    async def test_a_user_can_create_room_successfully(
+    async def test_a_user_can_fetch_rooms_successfully(
         self, test_setup: None, client: AsyncClient
     ):
         """
-        Tests user can create room successfully
+        Tests user can fetch rooms successfully
         """
         login_payload = {
             "password": register_input.get("password"),
             "email": register_input.get("email"),
-            "session_id": "00osqwosdd0000-pll0-0000-0000-00asq001",
+            "session_id": "00osqwosdd0asw-pll0-0000-0000-00asq001",
         }
 
         with patch(
@@ -64,7 +64,7 @@ class TestCreateRoom:
                 response = await client.post(
                     url="/api/v1/rooms",
                     json={
-                        "name": "My room",
+                        "name": "My room again",
                         "room_icon": "https://room.com",
                         "is_private": True,
                         "messages_delete_able": False,
@@ -76,9 +76,15 @@ class TestCreateRoom:
 
                 assert response.status_code == 201
 
+                # fetch rooms
+                response = await client.get(
+                    url="/api/v1/rooms",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                )
+
+                assert response.status_code == 200
+
                 data: dict = response.json()
 
-                assert data["message"] == "Room created successfully."
-                assert data["data"]["name"] == "My room"
-                assert data["data"]["owner_id"] == user_id
-                assert data["data"]["id"] is not None
+                assert data["message"] == "Rooms retrieved successfully."
+                assert len(data["data"]) > 0
