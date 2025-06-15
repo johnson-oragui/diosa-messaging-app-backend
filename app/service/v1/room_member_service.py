@@ -55,7 +55,6 @@ class RoomMemberService:
         all_members = await room_member_repository.fetch_all(
             session=session, room_id=room_id
         )
-        print(all_members)
 
         return RoomMebersResponseDto(
             data=[
