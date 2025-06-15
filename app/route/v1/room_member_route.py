@@ -23,7 +23,7 @@ room_members_router = APIRouter(prefix="/room-members", tags=["ROOM MEMBERS"])
     response_model=RoomMebersResponseDto,
     dependencies=[Depends(validate_logout_status)],
 )
-async def create_new_room(
+async def retrieve_room_members(
     request: Request,
     room_id: str,
     session: typing.Annotated[AsyncSession, Depends(get_async_session)],
