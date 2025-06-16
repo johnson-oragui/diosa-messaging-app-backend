@@ -120,6 +120,23 @@ class RoomMemberService:
                 detail="User already left the room",
             )
 
+        is_user_a_member = await room_member_repository.fetch(
+            member_id=schema.member_id, session=session, room_id=room_id
+        )
+        if is_user_a_member and is_user_a_member.left_room:
+            await room_member_repository.update(
+                session=session,
+                room_id=room_id,
+                member_id=schema.member_id,
+                left_room=False,
+                is_admin=schema.is_admin,
+            )
+            return AddRoomMemberResponseDto()
+        if is_user_a_member and not is_user_a_member.left_room:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="User already a member"
+            )
+
         try:
             await room_member_repository.create(
                 session=session,
