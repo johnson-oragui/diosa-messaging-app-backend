@@ -181,6 +181,17 @@ class RoomMemberService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot perform action on self.",
             )
+        room_exists = await room_repository.fetch(room_id=room_id, session=session)
+        if not room_exists:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Room not found",
+            )
+        if room_exists.owner_id == schema.member_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cannot perform action on room owner",
+            )
 
         is_user_admin = await room_member_repository.fetch(
             member_id=current_user_id, session=session, room_id=room_id
