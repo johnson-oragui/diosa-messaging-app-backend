@@ -93,5 +93,27 @@ class RoomMemberRepository:
 
         return (await session.execute(query)).mappings().all()
 
+    async def update(
+        self,
+        room_id: str,
+        session: AsyncSession,
+        member_id: str,
+        is_admin: typing.Union[None, bool],
+        left_room: typing.Union[None, bool],
+    ):
+        """
+        Updates room member status
+        """
+        query = sa.update(RoomMember).where(
+            RoomMember.room_id == room_id, RoomMember.member_id == member_id
+        )
+        if is_admin is not None:
+            query = query.values(is_admin=is_admin)
+        if left_room is not None:
+            query = query.values(left_room=left_room)
+        
+        await session.execute(query)
+        await session.commit()
+
 
 room_member_repository = RoomMemberRepository()
