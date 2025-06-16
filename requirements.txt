@@ -79,6 +79,7 @@ tqdm==4.67.1
 typing_extensions==4.12.2
 tzdata==2024.2
 urllib3==2.4.0
+uuid6==2024.7.10
 uvicorn==0.30.6
 vine==5.1.0
 watchdog==5.0.3
