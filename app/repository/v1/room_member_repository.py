@@ -23,6 +23,26 @@ class RoomMemberRepository:
         """
         self.model = RoomMember
 
+    async def create(
+        self, room_id: str, member_id: str, is_admin: bool, session: AsyncSession
+    ) -> RoomMember:
+        """
+        Adds a new member to a room.
+
+        Args:
+            member_id (str): The id of the room member to fetch.
+            session ( AsyncSession): The async database session object.
+            room_id (str): The id of room.
+            is_admin (bool): The admin status of the new member to add.
+        Returns:
+            RoomMember
+        """
+        new_member = RoomMember(member_id=member_id, room_id=room_id, is_admin=is_admin)
+        session.add(new_member)
+
+        await session.commit()
+        return new_member
+
     async def fetch(
         self, member_id: str, session: AsyncSession, room_id: str
     ) -> typing.Optional[RoomMember]:
@@ -72,6 +92,28 @@ class RoomMemberRepository:
         )
 
         return (await session.execute(query)).mappings().all()
+
+    async def update(
+        self,
+        room_id: str,
+        session: AsyncSession,
+        member_id: str,
+        is_admin: typing.Union[None, bool],
+        left_room: typing.Union[None, bool],
+    ):
+        """
+        Updates room member status
+        """
+        query = sa.update(RoomMember).where(
+            RoomMember.room_id == room_id, RoomMember.member_id == member_id
+        )
+        if is_admin is not None:
+            query = query.values(is_admin=is_admin)
+        if left_room is not None:
+            query = query.values(left_room=left_room)
+        
+        await session.execute(query)
+        await session.commit()
 
 
 room_member_repository = RoomMemberRepository()
