@@ -9,7 +9,12 @@ from app.repository.v1.room_member_repository import (
     room_member_repository,
     AsyncSession,
 )
-from app.dto.v1.room_member_dto import RoomMebersResponseDto, RoomMemberBaseDto
+from app.dto.v1.room_member_dto import (
+    RoomMebersResponseDto,
+    RoomMemberBaseDto,
+    AddRoomMemberRequestDto,
+    AddRoomMemberResponseDto,
+)
 from app.repository.v1.room_repository import room_repository
 
 
@@ -63,6 +68,54 @@ class RoomMemberService:
                 if member
             ]
         )
+
+    async def add_room_member(
+        self,
+        session: AsyncSession,
+        schema: AddRoomMemberRequestDto,
+        request: Request,
+        room_id: str,
+    ) -> typing.Union[None, AddRoomMemberResponseDto]:
+        """
+        Adss a new member to a room.
+
+        Args:
+            session (AsyncSession): The database async session object.
+            schema (AddRoomMemberRequestDto): The request payload.
+            request (Request): the request object.
+            room_id (str): The id of the room.
+        Returns:
+            AddRoomMemberResponseDto: response payload
+        """
+        claims: dict = request.state.claims
+        current_user_id = claims.get("user_id", "")
+
+        is_user_admin = await room_member_repository.fetch(
+            member_id=current_user_id, session=session, room_id=room_id
+        )
+        if not is_user_admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User not a member",
+            )
+        if not is_user_admin.is_admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="User not an admin"
+            )
+        if is_user_admin.left_room:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User already left the room",
+            )
+
+        await room_member_repository.create(
+            session=session,
+            room_id=room_id,
+            member_id=schema.member_id,
+            is_admin=schema.is_admin,
+        )
+
+        return AddRoomMemberResponseDto()
 
 
 room_member_service = RoomMemberService()
