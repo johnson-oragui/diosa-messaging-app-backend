@@ -4,6 +4,9 @@ Room member service module
 
 import typing
 from fastapi import Request, status, HTTPException
+from asyncpg.exceptions import ForeignKeyViolationError
+
+from sqlalchemy.exc import IntegrityError
 
 from app.repository.v1.room_member_repository import (
     room_member_repository,
@@ -16,6 +19,9 @@ from app.dto.v1.room_member_dto import (
     AddRoomMemberResponseDto,
 )
 from app.repository.v1.room_repository import room_repository
+from app.utils.task_logger import create_logger
+
+logger = create_logger(":::: RoomMemberService ::::")
 
 
 class RoomMemberService:
@@ -90,6 +96,12 @@ class RoomMemberService:
         claims: dict = request.state.claims
         current_user_id = claims.get("user_id", "")
 
+        if schema.member_id == current_user_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot add self to room",
+            )
+
         is_user_admin = await room_member_repository.fetch(
             member_id=current_user_id, session=session, room_id=room_id
         )
@@ -108,12 +120,18 @@ class RoomMemberService:
                 detail="User already left the room",
             )
 
-        await room_member_repository.create(
-            session=session,
-            room_id=room_id,
-            member_id=schema.member_id,
-            is_admin=schema.is_admin,
-        )
+        try:
+            await room_member_repository.create(
+                session=session,
+                room_id=room_id,
+                member_id=schema.member_id,
+                is_admin=schema.is_admin,
+            )
+        except (ForeignKeyViolationError, IntegrityError) as exc:
+            logger.error("Error adding user to room: %s", str(exc))
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            ) from exc
 
         return AddRoomMemberResponseDto()
 
