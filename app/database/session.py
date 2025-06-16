@@ -5,7 +5,9 @@ Database session module
 import os
 import asyncio
 from typing import AsyncIterator
+from datetime import datetime
 from contextlib import contextmanager
+
 from sqlalchemy.ext.asyncio import (
     async_scoped_session,  # For creating scoped sessions in async environments
     async_sessionmaker,  # For creating session factories
@@ -33,8 +35,8 @@ from sqlalchemy import (
     create_engine,
 )
 from sqlalchemy.exc import SQLAlchemyError
-from uuid import uuid4
-from datetime import datetime
+from uuid6 import uuid7
+
 
 from app.core.config import settings
 
@@ -187,7 +189,7 @@ class ModelMixin:
         String(60),
         primary_key=True,
         index=True,
-        default=lambda: str(uuid4()),
+        default=lambda: str(uuid7()),
         unique=True,
     )
     created_at: Mapped[datetime] = mapped_column(

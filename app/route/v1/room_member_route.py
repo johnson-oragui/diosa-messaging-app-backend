@@ -11,6 +11,8 @@ from app.dto.v1.room_member_dto import (
     RoomMebersResponseDto,
     AddRoomMemberRequestDto,
     AddRoomMemberResponseDto,
+    UpdateRoomMemberRequestDto,
+    UpdateRoomMemberResponseDto,
 )
 from app.core.security import validate_logout_status
 from app.database.session import get_async_session
@@ -73,5 +75,35 @@ async def add_room_member(
         404
     """
     return await room_member_service.add_room_member(
+        room_id=room_id, request=request, session=session, schema=schema
+    )
+
+
+@room_members_router.put(
+    "/{room_id}",
+    status_code=status.HTTP_200_OK,
+    responses=responses,
+    response_model=UpdateRoomMemberResponseDto,
+    dependencies=[Depends(validate_logout_status)],
+)
+async def update_member_to_admin_or_remove_member_from_room(
+    request: Request,
+    room_id: str,
+    schema: UpdateRoomMemberRequestDto,
+    session: typing.Annotated[AsyncSession, Depends(get_async_session)],
+) -> typing.Optional[UpdateRoomMemberResponseDto]:
+    """
+    Updates a user to admin or remove a user from room.
+
+    Return:
+        Success message upon success
+    Raises:
+        422
+        500
+        409
+        401
+        404
+    """
+    return await room_member_service.update_member_to_admin_or_remove_member_from_room(
         room_id=room_id, request=request, session=session, schema=schema
     )
