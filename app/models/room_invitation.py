@@ -50,6 +50,9 @@ class RoomInvitation(ModelMixin, Base):
     invitation_status: Mapped[str] = mapped_column(
         invitation_status_enum, server_default="pending", default="pending"
     )
+    admin_status: Mapped[str] = mapped_column(
+        invitation_status_enum, server_default="pending", default="pending"
+    )
 
     expiration: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
