@@ -35,6 +35,9 @@ class Room(ModelMixin, Base):
         default=False, server_default="FALSE"
     )
     is_private: Mapped[bool] = mapped_column(default=False, server_default="FALSE")
+    allow_non_admin_invitations: Mapped[bool] = mapped_column(
+        default=True, server_default="TRUE"
+    )
 
     # ------------------- relationships -------------------------
 
