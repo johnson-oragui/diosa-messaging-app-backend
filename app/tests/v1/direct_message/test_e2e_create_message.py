@@ -228,7 +228,7 @@ class TestCreateDirectMessage:
                 data3: dict = response.json()
 
                 assert data3["status_code"] == 404
-                assert data3["message"] == "Conversation not found"
+                assert data3["message"] == "Recipient not found"
 
     @pytest.mark.asyncio
     async def test_d_when_current_user_send_message_to_self_returns_409(
