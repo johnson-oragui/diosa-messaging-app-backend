@@ -223,7 +223,11 @@ class DirectConversationRepository:
         return conversations, total_conversations
 
     async def find_by_users(
-        self, sender_id: str, recipient_id: str, session: AsyncSession
+        self,
+        sender_id: str,
+        recipient_id: str,
+        session: AsyncSession,
+        conversation_id: typing.Optional[str] = None,
     ) -> typing.Optional[DirectConversation]:
         """
         Checks if users already has a conversation using their IDs
@@ -232,7 +236,8 @@ class DirectConversationRepository:
         Args:
             sender_id (str): The id of the sender.
             recipeint_id (str): The id of the recipient.
-            session (AsyncSession): The database async session object
+            session (AsyncSession): The database async session object.
+            conversation_id (str): Optional conversation id.
         Return:
             COnversation if found, None if not found.
         """
@@ -244,6 +249,8 @@ class DirectConversationRepository:
                 & (DirectConversation.recipient_id == sender_id)
             )
         )
+        if conversation_id:
+            query = query.where(DirectConversation.id == conversation_id)
 
         result = await session.execute(query)
         return result.scalar_one_or_none()

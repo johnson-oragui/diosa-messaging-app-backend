@@ -129,6 +129,15 @@ class TestCreateDirectMessage:
                 )
                 assert response.status_code == 201
 
+                # register second user
+                response = await client.post(
+                    url="/api/v1/auth/register", json=register_input_2
+                )
+                assert response.status_code == 201
+                data2: dict = response.json()
+
+                second_user_id = data2["data"]["id"]
+
                 # verify first user
                 await client.patch(
                     url="/api/v1/auth/verify-account",
@@ -149,7 +158,7 @@ class TestCreateDirectMessage:
                 message_payload = {
                     "parent_message_id": "12345789098-0000-0000-00000000",
                     "message": "Hello",
-                    "recipient_id": "121212121212-1212-1212-12121212",
+                    "recipient_id": second_user_id,
                 }
 
                 # send message to second user
@@ -167,11 +176,11 @@ class TestCreateDirectMessage:
                 assert data3["message"] == "Parent message not found"
 
     @pytest.mark.asyncio
-    async def test_c_when_conversation_not_exist_not_exist_returns_404(
+    async def test_c_when_conversation_not_exist__returns_404(
         self, test_setup: None, client: AsyncClient
     ):
         """
-        Tests when conversation not exist not exist returns 404
+        Tests when conversation not exist returns 404
         """
         login_payload = {
             "password": register_input.get("password"),
@@ -193,6 +202,15 @@ class TestCreateDirectMessage:
                 )
                 assert response.status_code == 201
 
+                # register second user
+                r_response = await client.post(
+                    url="/api/v1/auth/register", json=register_input_2
+                )
+                assert r_response.status_code == 201
+                r_data2: dict = r_response.json()
+
+                second_user_id = r_data2["data"]["id"]
+
                 # verify first user
                 await client.patch(
                     url="/api/v1/auth/verify-account",
@@ -211,21 +229,21 @@ class TestCreateDirectMessage:
                 access_token = data["data"]["access_token"]["token"]
 
                 message_payload = {
-                    "conversation_id": "12345789098-0000-0000-00000000",
+                    "conversation_id": "12345789098-0000-0000-00000212",
                     "message": "Hello",
-                    "recipient_id": "121212121212-1212-1212-12121212",
+                    "recipient_id": second_user_id,
                 }
 
                 # send message to second user
-                response = await client.post(
+                response_2 = await client.post(
                     url="/api/v1/direct-messages",
                     json=message_payload,
                     headers={"Authorization": f"Bearer {access_token}"},
                 )
 
-                assert response.status_code == 404
+                assert response_2.status_code == 404
 
-                data3: dict = response.json()
+                data3: dict = response_2.json()
 
                 assert data3["status_code"] == 404
                 assert data3["message"] == "Conversation not found"
