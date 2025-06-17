@@ -86,6 +86,7 @@ class DirectMessageService:
                 sender_id=current_user_id,
                 recipient_id=schema.recipient_id,
                 session=session,
+                conversation_id=schema.conversation_id,
             )
             if not conversation_exists:
                 raise HTTPException(
