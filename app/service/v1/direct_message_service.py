@@ -12,6 +12,7 @@ from fastapi import Request, HTTPException, status
 from app.repository.v1.direct_message_repository import (
     direct_message_repository,
 )
+from app.repository.v1.user_repository import user_repository
 from app.repository.v1.direct_conv_repository import (
     direct_conversation_repository,
 )
@@ -59,6 +60,14 @@ class DirectMessageService:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Cannot send message to self",
+            )
+        recipient_exists = await user_repository.fetch_by_id(
+            user_id=schema.recipient_id, session=session
+        )
+        if not recipient_exists:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Recipient not found",
             )
 
         conversation_exists = None
