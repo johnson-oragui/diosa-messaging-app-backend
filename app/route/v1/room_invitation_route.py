@@ -10,6 +10,8 @@ from app.service.v1.room_invitation_service import room_invitation_service, Asyn
 from app.dto.v1.room_inivitation_dto import (
     RoomInvitationRequestDto,
     RoomInvitationResponseDto,
+    RoomInvitationUpdateResponseDto,
+    RoomInvitationUpdateRequestDto,
 )
 from app.core.security import validate_logout_status
 from app.database.session import get_async_session
@@ -43,4 +45,33 @@ async def invite_users_to_room(
     """
     return await room_invitation_service.create_room_invitation(
         schema=schema, request=request, session=session
+    )
+
+
+@room_invitation_router.patch(
+    "",
+    status_code=status.HTTP_200_OK,
+    responses=responses,
+    response_model=RoomInvitationUpdateResponseDto,
+    dependencies=[Depends(validate_logout_status)],
+)
+async def update_room_invitation_request(
+    request: Request,
+    schema: RoomInvitationUpdateRequestDto,
+    session: typing.Annotated[AsyncSession, Depends(get_async_session)],
+) -> typing.Optional[RoomInvitationUpdateResponseDto]:
+    """
+    Declines, accepts, ignores and cancels room invitation.
+
+    Return:
+        Success message upon success
+    Raises:
+        422
+        500
+        409
+        401
+        404
+    """
+    return await room_invitation_service.update_room_invitation_request(
+        schema=schema, session=session, request=request
     )
