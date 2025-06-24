@@ -1,13 +1,14 @@
+from typing import AsyncIterator
+from contextlib import asynccontextmanager
+
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocketException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.exceptions import RequestValidationError, HTTPException
 from sqlalchemy.exc import SQLAlchemyError
 from redis.exceptions import RedisError
-from typing import AsyncIterator
-from contextlib import asynccontextmanager
 from starlette.middleware.sessions import SessionMiddleware
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.gzip import GZipMiddleware
 from brotli_asgi import BrotliMiddleware
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
@@ -25,10 +26,12 @@ from app.core.error_handlers import (
     sqlalchemy_exception_handler,
     redis_exception_handler,
     ratelimit_exception_handler,
+    websocket_exception_handler,
 )
 from app.database.session import async_engine
 from app.utils.task_logger import create_logger
 from app.route.v1 import api_version_one
+from app.websocketss import websocket_router
 from app.core.config import settings
 from app.database.celery_database import setup_celery_results_db
 
@@ -87,6 +90,7 @@ app.add_middleware(RequestLoggerMiddleware)
 app.add_middleware(SetHeadersMiddleware)
 
 app.include_router(api_version_one)
+app.include_router(websocket_router)
 
 
 @app.get("/", tags=["HOME"])
@@ -105,6 +109,7 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(SQLAlchemyError, sqlalchemy_exception_handler)
 app.add_exception_handler(RedisError, redis_exception_handler)
 app.add_exception_handler(RedisError, ratelimit_exception_handler)
+app.add_exception_handler(WebSocketException, websocket_exception_handler)
 app.add_exception_handler(Exception, exception)
 
 if __name__ == "__main__":
