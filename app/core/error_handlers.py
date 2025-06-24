@@ -2,7 +2,9 @@
 Exception handler module
 """
 
-from fastapi import HTTPException, Request, status
+import typing
+
+from fastapi import HTTPException, Request, status, WebSocketException, WebSocket
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
@@ -15,26 +17,44 @@ from app.utils.task_logger import create_logger
 logger = create_logger("Exception Handler Logger")
 
 
-def get_user_ip_and_agent(request: Request) -> dict:
+def get_user_ip_and_agent(request: typing.Union[Request, WebSocket]) -> dict:
     """
     Retrieves user_ip and user_agent
     """
-    user_ip = request.client and request.client.host or None
-    user_agent = request.headers.get("user-agent", "Unknown")
-    path = request.url.path
-    method = request.method
-    current_user = (
-        request.state.current_user
-        if hasattr(request.state, "current_user")
-        else "Guest"
-    )
-    return {
-        "user_ip": user_ip,
-        "user_agent": user_agent,
-        "path": path,
-        "method": method,
-        "current_user": current_user,
-    }
+    if isinstance(request, Request):
+        user_ip = request.client and request.client.host or None
+        user_agent = request.headers.get("user-agent", "Unknown")
+        path = request.url.path
+        method = request.method
+        current_user = (
+            request.state.current_user
+            if hasattr(request.state, "current_user")
+            else "Guest"
+        )
+        return {
+            "user_ip": user_ip,
+            "user_agent": user_agent,
+            "path": path,
+            "method": method,
+            "current_user": current_user,
+        }
+    if isinstance(request, WebSocket):
+        user_ip = request.client and request.client.host or None
+        user_agent = request.headers.get("user-agent", "Unknown")
+        path = request.url.path
+        method = "websocket"
+        current_user = (
+            request.state.current_user
+            if hasattr(request.state, "current_user")
+            else "Guest"
+        )
+        return {
+            "user_ip": user_ip,
+            "user_agent": user_agent,
+            "path": path,
+            "method": method,
+            "current_user": current_user,
+        }
 
 
 async def exception(request: Request, exc: Exception) -> JSONResponse:
@@ -145,6 +165,27 @@ async def redis_exception_handler(request: Request, exc: RedisError) -> JSONResp
             {
                 "status_code": status.HTTP_503_SERVICE_UNAVAILABLE,
                 "message": "A Redis Error occured",
+                "data": {},
+            }
+        ),
+    )
+
+
+async def websocket_exception_handler(
+    websocket: WebSocket, exc: WebSocketException
+) -> JSONResponse:
+    """
+    Handles WebSocketException Error
+    """
+    logger.error(
+        msg=f"WebSocketException error: {exc}", extra=get_user_ip_and_agent(websocket)
+    )
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content=jsonable_encoder(
+            {
+                "status_code": status.HTTP_503_SERVICE_UNAVAILABLE,
+                "message": "A Websocket Error occured",
                 "data": {},
             }
         ),

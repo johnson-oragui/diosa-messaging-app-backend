@@ -6,7 +6,7 @@ import typing
 from datetime import datetime, timezone, timedelta
 
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi import Depends, Request, HTTPException, Header
+from fastapi import Depends, Request, HTTPException, Header, WebSocket
 from jose import jwt, JWTError
 import sqlalchemy as sa
 
@@ -184,3 +184,45 @@ async def verify_jwt_tokens(
         raise HTTPException(
             status_code=401, detail=f"{token_type} token validation failed"
         ) from exc
+
+
+async def validate_ws_logout_status(
+    session: Session,
+    websocket: WebSocket,
+    Authorization: str = Header(
+        description="Authorization header", title="Authorization"
+    ),
+) -> None:
+    """
+    Uses DI to Validates auth bearer, log out status and sets claims to request.
+    """
+    if not Authorization:
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+    if not isinstance(Authorization, str):
+        raise HTTPException(status_code=401, detail="Invalid Authorization header")
+
+    scheme, token = Authorization.split(" ")
+    if scheme != "Bearer":
+        raise HTTPException(
+            status_code=401, detail="Authorization Bearer scheme required"
+        )
+
+    claims = await verify_jwt_tokens(token, "access")
+
+    is_not_logged_in = (
+        await session.execute(
+            sa.select(UserSession).where(
+                UserSession.session_id == claims.get("session_id"),
+                UserSession.is_logged_out.is_(False),
+            )
+        )
+    ).scalar_one_or_none()
+
+    if not is_not_logged_in:
+        raise HTTPException(status_code=401, detail="session expired")
+
+    if claims.get("jti") != is_not_logged_in.jti:
+        raise HTTPException(status_code=401, detail="Invalid or expired session")
+
+    websocket.state.claims = claims
+    websocket.state.current_user = claims.get("user_id")
