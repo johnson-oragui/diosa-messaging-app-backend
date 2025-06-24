@@ -4,6 +4,7 @@ Direct Message Route Module
 
 import typing
 from fastapi import APIRouter, status, Request, Depends, Query
+from redis.asyncio import Redis
 
 from app.utils.responses import responses
 from app.service.v1.direct_message_service import direct_message_service, AsyncSession
@@ -17,6 +18,7 @@ from app.dto.v1.direct_message_dto import (
     DeleteMessageResponseDto,
 )
 from app.database.session import get_async_session
+from app.database.redis_db import get_redis_client
 from app.core.security import validate_logout_status
 
 
@@ -34,6 +36,7 @@ async def send_new_message(
     request: Request,
     schema: SendMessageDto,
     session: typing.Annotated[AsyncSession, Depends(get_async_session)],
+    redis: typing.Annotated[Redis, Depends(get_redis_client)],
 ) -> typing.Optional[SendMessageResponseDto]:
     """
     Sends message to a user.
@@ -48,7 +51,7 @@ async def send_new_message(
         404
     """
     return await direct_message_service.send_message(
-        schema=schema, session=session, request=request
+        schema=schema, session=session, request=request, redis=redis
     )
 
 

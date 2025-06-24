@@ -8,6 +8,7 @@ from datetime import timezone, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import Request, HTTPException, status
+from redis.asyncio import Redis
 
 from app.repository.v1.direct_message_repository import (
     direct_message_repository,
@@ -27,6 +28,7 @@ from app.dto.v1.direct_message_dto import (
     DeleteMessageDto,
 )
 from app.utils.task_logger import create_logger
+from app.websocketss.ws_redis_connection_manager import ws_redis_connection_manager
 
 
 logger = create_logger(":: DirectMessage Service ::")
@@ -38,7 +40,11 @@ class DirectMessageService:
     """
 
     async def send_message(
-        self, schema: SendMessageDto, session: AsyncSession, request: Request
+        self,
+        schema: SendMessageDto,
+        session: AsyncSession,
+        request: Request,
+        redis: Redis,
     ) -> typing.Union[SendMessageResponseDto, None]:
         """
         Sends a new message to a user.
@@ -128,6 +134,10 @@ class DirectMessageService:
         add_to_session_list.append(new_message)
         session.add_all(add_to_session_list)
         await session.commit()
+
+        await ws_redis_connection_manager.send_dm(
+            direct_message=new_message, redis=redis
+        )
 
         message_base = MessageBaseDto.model_validate(new_message, from_attributes=True)
         return SendMessageResponseDto(data=message_base)
