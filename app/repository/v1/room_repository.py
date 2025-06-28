@@ -100,11 +100,26 @@ class RoomRepository:
         return result.rowcount
 
     async def fetch(
-        self, room_id: str, session: AsyncSession
-    ) -> typing.Union[Room, None]:
+        self,
+        room_id: str,
+        session: AsyncSession,
+        attributes: typing.List[typing.Union[str, None]] = [],
+    ) -> typing.Union[Room, None, typing.Mapping]:
         """
         Retrieves a room
         """
+        if len(attributes) > 0:
+            selected_fields = [
+                getattr(self.model, attr)
+                for attr in attributes
+                if isinstance(attr, str) and hasattr(self.model, attr)
+            ]
+            if not selected_fields:
+                return None
+            query = sa.select(*selected_fields).where(self.model.id == room_id)
+
+            return (await session.execute(query)).mappings().one_or_none()
+
         return (
             await session.execute(sa.select(self.model).where(self.model.id == room_id))
         ).scalar_one_or_none()
