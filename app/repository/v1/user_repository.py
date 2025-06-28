@@ -72,8 +72,11 @@ class UserRepository:
         return user
 
     async def fetch_by_id(
-        self, user_id: str, session: AsyncSession
-    ) -> typing.Optional[User]:
+        self,
+        user_id: str,
+        session: AsyncSession,
+        attributes: typing.List[typing.Union[str, None]] = [],
+    ) -> typing.Union[User, None, typing.Mapping]:
         """
         Retrieves a user by id.
 
@@ -82,13 +85,26 @@ class UserRepository:
         Returns:
             User(object): The user instance or none
         """
-        query = sa.select(User).where(User.id == user_id, User.is_deleted.is_(False))
+        if attributes:
+            selected_fields = await self.fetch_attributes(attributes)
+            if selected_fields:
+                query = sa.select(*selected_fields).where(
+                    self.model.id == user_id, self.model.is_deleted.is_(False)
+                )
+                return (await session.execute(query)).mappings().one_or_none()
+
+        query = sa.select(self.model).where(
+            self.model.id == user_id, self.model.is_deleted.is_(False)
+        )
 
         return (await session.execute(query)).scalar_one_or_none()
 
     async def fetch_by_email(
-        self, email: str, session: AsyncSession
-    ) -> typing.Optional[User]:
+        self,
+        email: str,
+        session: AsyncSession,
+        attributes: typing.List[typing.Union[str, None]] = [],
+    ) -> typing.Union[User, None, typing.Mapping]:
         """
         Retrieves a user by email.
 
@@ -97,13 +113,26 @@ class UserRepository:
         Returns:
             User(object): The user instance or none
         """
-        query = sa.select(User).where(User.email == email, User.is_deleted.is_(False))
+        if attributes:
+            selected_fields = await self.fetch_attributes(attributes)
+            if selected_fields:
+                query = sa.select(*selected_fields).where(
+                    self.model.email == email, self.model.is_deleted.is_(False)
+                )
+                return (await session.execute(query)).mappings().one_or_none()
+
+        query = sa.select(self.model).where(
+            self.model.email == email, self.model.is_deleted.is_(False)
+        )
 
         return (await session.execute(query)).scalar_one_or_none()
 
     async def fetch_by_username(
-        self, username: str, session: AsyncSession
-    ) -> typing.Optional[User]:
+        self,
+        username: str,
+        session: AsyncSession,
+        attributes: typing.List[typing.Union[str, None]] = [],
+    ) -> typing.Union[User, None, typing.Mapping]:
         """
         Retrieves a user by username.
 
@@ -112,15 +141,26 @@ class UserRepository:
         Returns:
             User(object): The user instance or none
         """
-        query = sa.select(User).where(
-            User.username == username, User.is_deleted.is_(False)
+        if attributes:
+            selected_fields = await self.fetch_attributes(attributes)
+            if selected_fields:
+                query = sa.select(*selected_fields).where(
+                    self.model.username == username, self.model.is_deleted.is_(False)
+                )
+                return (await session.execute(query)).mappings().one_or_none()
+
+        query = sa.select(self.model).where(
+            self.model.username == username, self.model.is_deleted.is_(False)
         )
 
         return (await session.execute(query)).scalar_one_or_none()
 
     async def fetch_by_idempotency_key(
-        self, idempotency_key: str, session: AsyncSession
-    ) -> typing.Optional[User]:
+        self,
+        idempotency_key: str,
+        session: AsyncSession,
+        attributes: typing.List[typing.Union[str, None]] = [],
+    ) -> typing.Union[User, None, typing.Mapping]:
         """
         Retrieves a user by idempotency_key.
 
@@ -129,8 +169,18 @@ class UserRepository:
         Returns:
             User(object): The user instance or none
         """
-        query = sa.select(User).where(
-            User.idempotency_key == idempotency_key, User.is_deleted.is_(False)
+        if attributes:
+            selected_fields = await self.fetch_attributes(attributes)
+            if selected_fields:
+                query = sa.select(*selected_fields).where(
+                    self.model.idempotency_key == idempotency_key,
+                    self.model.is_deleted.is_(False),
+                )
+                return (await session.execute(query)).mappings().one_or_none()
+
+        query = sa.select(self.model).where(
+            self.model.idempotency_key == idempotency_key,
+            self.model.is_deleted.is_(False),
         )
 
         return (await session.execute(query)).scalar_one_or_none()
@@ -140,7 +190,8 @@ class UserRepository:
         email: typing.Union[str, None],
         username: typing.Union[str, None],
         session: AsyncSession,
-    ) -> typing.Optional[User]:
+        attributes: typing.List[typing.Union[str, None]] = [],
+    ) -> typing.Union[User, None, typing.Mapping]:
         """
         Retrieves a user by username or email.
 
@@ -149,8 +200,20 @@ class UserRepository:
         Returns:
             User(object): The user instance or none
         """
-        query = sa.select(User).where(
-            User.is_deleted.is_(False),
+        if attributes:
+            selected_fields = await self.fetch_attributes(attributes)
+            if selected_fields:
+                query = sa.select(*selected_fields).where(
+                    self.model.is_deleted.is_(False),
+                )
+                if email:
+                    query = query.where(self.model.email == email)
+                if username:
+                    query = query.where(self.model.username == username)
+                return (await session.execute(query)).mappings().one_or_none()
+
+        query = sa.select(self.model).where(
+            self.model.is_deleted.is_(False),
         )
         if email:
             query = query.where(self.model.email == email)
@@ -169,10 +232,10 @@ class UserRepository:
             None
         """
         query = (
-            sa.update(User)
+            sa.update(self.model)
             .where(
-                User.id == user.id,
-                User.is_deleted.is_(False),
+                self.model.id == user.id,
+                self.model.is_deleted.is_(False),
             )
             .values(
                 is_deleted=True,
@@ -207,9 +270,9 @@ class UserRepository:
         user = await self.fetch_by_id(user_id=user_id, session=session)
         if not user:
             return False
-        if not user.verify_password(old_password):
+        if not user.verify_password(old_password):  # type: ignore
             return False
-        user.set_password(new_password)
+        user.set_password(new_password)  # type: ignore
         session.add(user)
         await session.commit()
         await session.refresh(user)
@@ -256,6 +319,22 @@ class UserRepository:
         await session.execute(query)
 
         await session.commit()
+
+    async def fetch_attributes(
+        self, attributes: typing.List[typing.Union[str, None]] = []
+    ) -> list | None:
+        """
+        Returns list of attributes
+        """
+        selected_fields = [
+            getattr(self.model, attr)
+            for attr in attributes
+            if isinstance(attr, str) and hasattr(self.model, attr)
+        ]
+
+        if not selected_fields:
+            return None
+        return selected_fields
 
 
 user_repository = UserRepository()
