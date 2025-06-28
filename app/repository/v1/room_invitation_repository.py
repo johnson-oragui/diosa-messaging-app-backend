@@ -15,6 +15,12 @@ class RoomInvitationRepository:
     RoomInvitationRepository class
     """
 
+    def __init__(self) -> None:
+        """
+        Constructor.
+        """
+        self.model = RoomInvitation
+
     async def create(
         self, session: AsyncSession, room_id: str, inviter_id: str, invitee_id: str
     ) -> RoomInvitation:
@@ -49,6 +55,7 @@ class RoomInvitationRepository:
         invitee_id: typing.Union[None, str],
         invitation_status: typing.Union[None, str],
         invitation_id: typing.Union[None, str],
+        attributes: typing.List[typing.Union[str, None]] = [],
     ) -> typing.Union[None, RoomInvitation]:
         """
         Fetches a room invitation.
@@ -64,6 +71,16 @@ class RoomInvitationRepository:
             int: The number of affected rows
         """
         query = sa.select(RoomInvitation)
+        if len(attributes) > 0:
+            selected_fields = [
+                getattr(self.model, attr)
+                for attr in attributes
+                if isinstance(attr, str) and hasattr(self.model, attr)
+            ]
+            if not selected_fields:
+                return None
+            else:
+                query = sa.select(*selected_fields)
         if room_id:
             query = query.where(RoomInvitation.room_id == room_id)
         if inviter_id:
