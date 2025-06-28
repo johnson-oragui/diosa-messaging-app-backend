@@ -44,8 +44,12 @@ class RoomMemberRepository:
         return new_member
 
     async def fetch(
-        self, member_id: str, session: AsyncSession, room_id: str
-    ) -> typing.Optional[RoomMember]:
+        self,
+        member_id: str,
+        session: AsyncSession,
+        room_id: str,
+        attributes: typing.List[typing.Union[str, None]] = [],
+    ) -> typing.Union[RoomMember, None, typing.Mapping]:
         """
         Fetches a room member.
 
@@ -56,6 +60,20 @@ class RoomMemberRepository:
         Returns:
             RoomMember or None
         """
+        if len(attributes) > 0:
+            selected_fields = [
+                getattr(self.model, attr)
+                for attr in attributes
+                if isinstance(attr, str) and hasattr(self.model, attr)
+            ]
+            if not selected_fields:
+                return None
+            query = sa.select(*selected_fields).where(
+                self.model.member_id == member_id, self.model.room_id == room_id
+            )
+
+            return (await session.execute(query)).mappings().one_or_none()
+
         query = sa.select(self.model).where(
             self.model.member_id == member_id, self.model.room_id == room_id
         )
@@ -111,7 +129,7 @@ class RoomMemberRepository:
             query = query.values(is_admin=is_admin)
         if left_room is not None:
             query = query.values(left_room=left_room)
-        
+
         await session.execute(query)
         await session.commit()
 
