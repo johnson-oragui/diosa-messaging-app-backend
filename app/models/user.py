@@ -20,6 +20,7 @@ from app.models.direct_conversation import DirectConversation
 from app.models.room import Room
 from app.models.room_member import RoomMember
 from app.models.room_invitation import RoomInvitation
+from app.models.room_message import RoomMessage
 
 password_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -116,6 +117,10 @@ class User(ModelMixin, Base):
         foreign_keys=[RoomInvitation.invitee_id],
         back_populates="invitee",
         uselist=True,
+    )
+
+    room_messages: Mapped[List["RoomMessage"]] = relationship(
+        "RoomMessage", back_populates="user", uselist=True
     )
 
     # ------------------ methods ------------------
