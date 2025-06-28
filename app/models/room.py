@@ -10,6 +10,7 @@ from sqlalchemy import ForeignKey
 from app.database.session import Base, ModelMixin
 from app.models.room_member import RoomMember
 from app.models.room_invitation import RoomInvitation
+from app.models.room_message import RoomMessage
 
 if TYPE_CHECKING:
     from app.models.user import User
@@ -55,4 +56,8 @@ class Room(ModelMixin, Base):
 
     invitations: Mapped[List["RoomInvitation"]] = relationship(
         "RoomInvitation", back_populates="room", uselist=True
+    )
+
+    room_messages: Mapped["RoomMessage"] = relationship(
+        "RoomMessage", back_populates="room", uselist=False
     )
