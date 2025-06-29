@@ -118,5 +118,75 @@ class RoomMessageRepository:
 
         return (result, total_count)
 
+    async def fetch(
+        self,
+        session: AsyncSession,
+        message_id: str,
+        room_id: str,
+        attributes: typing.List[typing.Union[str, None]] = [],
+    ) -> typing.Union[RoomMessage, None]:
+        """
+        Retrieves a message.
+
+        Args:
+            session (AsyncSession): Database async session object.
+            message_id (str): The id of the message to retrieve.
+            room_id (str): The id of the room message to retrieve.
+            attributes (List[str]): Optional list of fields to select from the message
+        Returns:
+            Message if found or None
+        """
+        if len(attributes) > 0:
+            selected_fields = [
+                getattr(self.model, attr)
+                for attr in attributes
+                if isinstance(attr, str) and hasattr(self.model, attr)
+            ]
+            if not selected_fields:
+                return None
+            query = sa.select(*selected_fields).where(
+                self.model.id == message_id, self.model.room_id == room_id
+            )
+
+            return (await session.execute(query)).scalar_one_or_none()
+
+        query = sa.select(self.model).where(
+            self.model.id == message_id, self.model.room_id == room_id
+        )
+
+        return (await session.execute(query)).scalar_one_or_none()
+
+    async def update(
+        self,
+        user_id: str,
+        content: str,
+        session: AsyncSession,
+        message: RoomMessage,
+    ) -> RoomMessage:
+        """
+        Updates a message.
+        Args:
+            message(DirectMessage): The message to update
+            contest(str): The new message content
+            user_id(str): The id of the current user.
+            session (AsyncSession): The database async session object.
+        Returns:
+            int
+        """
+        query = (
+            sa.update(self.model)
+            .where(
+                self.model.room_id == message.room_id,
+                self.model.id == message.id,
+                self.model.sender_id == user_id,
+            )
+            .values(content=content, is_edited=True)
+        )
+
+        await session.execute(query)
+        await session.commit()
+        await session.refresh(message)
+        return message
+
 
 room_message_repository = RoomMessageRepository()
