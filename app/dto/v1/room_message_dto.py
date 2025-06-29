@@ -174,3 +174,55 @@ class UpdateRoomMessageResponseDto(BaseModel):
     )
     status_code: int = Field(default=200, examples=[200])
     data: RoomMessageBaseDto
+
+
+# +++++++++++++++++++++++++++++++++++++++ delete message +++++++++++++++++++++++++++++++++++++++++
+
+
+class DeleteRoomMessageDto(BaseModel):
+    """
+    Schema for message delete
+    """
+
+    message_ids: List[
+        Annotated[
+            str, StringConstraints(min_length=10, max_length=60, strip_whitespace=True)
+        ]
+    ] = Field(
+        examples=[["12312432-42345435-4564645", "1234324-23453-53454-645"]],
+        description="ID of messages to delete. only 10 message IDs per request",
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_fields(cls, values: dict) -> dict:
+        """
+        Validates fields
+        """
+        if isinstance(values, bytes):
+            values = json.loads(values)
+        message_ids: list | None = values.get("message_ids", None)
+
+        if message_ids:
+            if len(message_ids) > 10:
+                raise ValueError("can only delete 10 messages at a time")
+            if len(message_ids) < 0:
+                raise ValueError("must provide message for deletion")
+
+        return values
+
+
+class DeleteRoomMessageResponseDto(BaseModel):
+    """
+    Delete message schema
+    """
+
+    message: str = Field(
+        default="message(s) deleted successfully",
+        examples=["message(s) deleted successfully"],
+    )
+    status_code: int = Field(default=200, examples=[200])
+    data: dict = Field(
+        default={},
+        examples=[{}],
+    )
