@@ -5,6 +5,7 @@ DirectMEssage DTO
 from datetime import datetime, timezone
 import json
 from typing import Annotated, List, Optional
+from enum import Enum
 
 from pydantic import BaseModel, Field, HttpUrl, StringConstraints, model_validator
 from bleach import clean
@@ -117,3 +118,12 @@ class AllRoomMessagesResponseDto(BaseModel):
     total_messages: int = Field(examples=[100])
 
     data: List[Optional[RoomMessageBaseDto]]
+
+
+class RoomMessageOrderEnum(str, Enum):
+    """
+    Room message order by enum
+    """
+
+    DESC = "desc"
+    ASC = "asc"
