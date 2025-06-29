@@ -120,7 +120,7 @@ class User(ModelMixin, Base):
     )
 
     room_messages: Mapped[List["RoomMessage"]] = relationship(
-        "RoomMessage", back_populates="user", uselist=True
+        "RoomMessage", back_populates="sender", uselist=True
     )
 
     # ------------------ methods ------------------
