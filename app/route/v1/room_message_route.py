@@ -4,12 +4,14 @@ Room Message route module
 
 import typing
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, Request, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dto.v1.room_message_dto import (
     SendRoomMessageResponseDto,
     SendRoomMessageRequestDto,
+    AllRoomMessagesResponseDto,
+    RoomMessageOrderEnum,
 )
 from app.utils.responses import responses
 from app.core.security import validate_logout_status
@@ -48,4 +50,46 @@ async def send_room_message(
     """
     return await room_message_service.create_room_message(
         request=request, session=session, schema=schema
+    )
+
+
+@room_message_router.get(
+    "/{room_id}",
+    status_code=status.HTTP_200_OK,
+    responses=responses,
+    response_model=AllRoomMessagesResponseDto,
+    dependencies=[Depends(validate_logout_status)],
+)
+async def retrieve_messages(
+    request: Request,
+    room_id: str,
+    session: typing.Annotated[AsyncSession, Depends(get_async_session)],
+    order_by: RoomMessageOrderEnum = Query(
+        default=RoomMessageOrderEnum.DESC,
+        description="The order of the messages. (Optional)",
+    ),
+    page: int = Query(default=1, ge=1, description="The current page"),
+    limit: int = Query(
+        default=50, ge=1, le=50, description="The size of messages per page"
+    ),
+) -> typing.Optional[AllRoomMessagesResponseDto]:
+    """
+    Retrieve messages of a room.
+
+    Return:
+        Success message upon success
+    Raises:
+        422
+        500
+        409
+        401
+        404
+    """
+    return await room_message_service.fetch_room_messages(
+        page=page,
+        limit=limit,
+        room_id=room_id,
+        session=session,
+        request=request,
+        order_by=order_by,
     )
