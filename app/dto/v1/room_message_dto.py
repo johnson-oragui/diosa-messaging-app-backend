@@ -127,3 +127,50 @@ class RoomMessageOrderEnum(str, Enum):
 
     DESC = "desc"
     ASC = "asc"
+
+
+# +++++++++++++++++++++++++++++++++++++++ update message +++++++++++++++++++++++++++++++++++++++++
+
+# update messages
+
+
+class UpdateRoomMessageDto(BaseModel):
+    """
+    Update message schema
+    """
+
+    message_id: Annotated[str, StringConstraints(min_length=1, max_length=1000)] = (
+        Field(examples=["123124-1242-99999-5645765"])
+    )
+
+    message: Annotated[str, StringConstraints(min_length=1, strip_whitespace=True)] = (
+        Field(examples=["Hello"])
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_fields(cls, values: dict) -> dict:
+        """
+        Validates fields
+        """
+        if isinstance(values, bytes):
+            values = json.loads(values)
+        message: str = values.get("message", "")
+
+        if message:
+            values["message"] = clean(message)
+
+        return values
+
+
+class UpdateRoomMessageResponseDto(BaseModel):
+    """
+    Update message response schema
+    """
+
+    message: str = Field(
+        default="message updated successfully",
+        examples=["message updated successfully"],
+    )
+    status_code: int = Field(default=200, examples=[200])
+    data: RoomMessageBaseDto
