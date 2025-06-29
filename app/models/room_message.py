@@ -7,6 +7,7 @@ from sqlalchemy import ForeignKey, TEXT
 from sqlalchemy.orm import relationship
 
 from app.database.session import Base, ModelMixin, String, Mapped, mapped_column
+from app.models.enums import message_status_enum
 
 if TYPE_CHECKING:
     from app.models.user import User
@@ -37,15 +38,18 @@ class RoomMessage(ModelMixin, Base):
         nullable=True,
         index=True,
     )
-    content: Mapped[str] = mapped_column(TEXT)
+    content: Mapped[Optional[str]] = mapped_column(TEXT, nullable=True)
+    status: Mapped[str] = mapped_column(
+        message_status_enum, default="sent", server_default="sent"
+    )
     is_deleted: Mapped[bool] = mapped_column(default=False, server_default="FALSE")
     media_url: Mapped[Optional[str]] = mapped_column(nullable=True)
     media_type: Mapped[str] = mapped_column(default="text", server_default="text")
     is_edited: Mapped[bool] = mapped_column(default=False, server_default="FALSE")
 
     # -------------------------- relationships ----------------------------
-    user: Mapped["User"] = relationship(
-        "User", back_populates="messages", uselist=False
+    sender: Mapped["User"] = relationship(
+        "User", back_populates="room_messages", uselist=False
     )
     room: Mapped["Room"] = relationship(
         "Room", back_populates="room_messages", uselist=False
