@@ -28,12 +28,13 @@ class TestFetchRoomMessages:
         """
 
         # create user
+        email = f"{uuid4()}@gmail.com"
         user = User(
-            email=register_input.get("email"),
+            email=email,
             profile_photo="https://photo.com",
             email_verified=True,
         )
-        await user.set_idempotency_key(register_input.get("email", ""))
+        await user.set_idempotency_key(email)
         user.set_password(register_input.get("password", ""))
 
         # create room and add room member
@@ -53,7 +54,7 @@ class TestFetchRoomMessages:
         # login user
         login_payload = {
             "password": register_input.get("password"),
-            "email": register_input.get("email"),
+            "email": email,
             "session_id": str(uuid4()),
         }
 
