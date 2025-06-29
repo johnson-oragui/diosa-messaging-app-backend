@@ -14,6 +14,8 @@ from app.dto.v1.room_message_dto import (
     RoomMessageOrderEnum,
     UpdateRoomMessageDto,
     UpdateRoomMessageResponseDto,
+    DeleteRoomMessageDto,
+    DeleteRoomMessageResponseDto,
 )
 from app.utils.responses import responses
 from app.core.security import validate_logout_status
@@ -130,6 +132,44 @@ async def update_messages(
         HTTPException 400: when Cannot update after 15 minutes of sending a message.
     """
     return await room_message_service.update_message(
+        room_id=room_id,
+        session=session,
+        request=request,
+        schema=schema,
+    )
+
+
+@room_message_router.put(
+    "/{room_id}",
+    status_code=status.HTTP_200_OK,
+    responses=responses,
+    response_model=DeleteRoomMessageResponseDto,
+    dependencies=[Depends(validate_logout_status)],
+)
+async def delete_messages(
+    request: Request,
+    room_id: str,
+    session: typing.Annotated[AsyncSession, Depends(get_async_session)],
+    schema: DeleteRoomMessageDto,
+) -> typing.Optional[DeleteRoomMessageResponseDto]:
+    """
+    Deletes a room messages.
+
+    Return:
+        Success message upon success
+    Raises:
+        HTTPException 401: when not authenticated.
+        HTTPException 401: when invalid access token.
+        HTTPException 401: when access token is blacklisted.
+        HTTPException 404: when room not found.
+        HTTPException 404: when message not found.
+        HTTPException 403: when Room is deactivated.
+        HTTPException 403: when User not a member.
+        HTTPException 403: when User already left room.
+        HTTPException 403: when User does not have enough access to message.
+        HTTPException 400: when Cannot delete after 15 minutes of sending a message.
+    """
+    return await room_message_service.delete_room_messages(
         room_id=room_id,
         session=session,
         request=request,

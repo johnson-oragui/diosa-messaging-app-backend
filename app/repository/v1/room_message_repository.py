@@ -1,5 +1,5 @@
 """
-RoomMessageRepository module
+RoomMessage Repository
 """
 
 import typing
@@ -8,9 +8,6 @@ import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.room_message import RoomMessage
-from app.models.room_member import RoomMember
-from app.models.room import Room
-from app.models.user import User
 
 
 class RoomMessageRepository:
@@ -124,7 +121,7 @@ class RoomMessageRepository:
         message_id: str,
         room_id: str,
         attributes: typing.List[typing.Union[str, None]] = [],
-    ) -> typing.Union[RoomMessage, None]:
+    ) -> typing.Union[RoomMessage, None, typing.Mapping]:
         """
         Retrieves a message.
 
@@ -148,7 +145,7 @@ class RoomMessageRepository:
                 self.model.id == message_id, self.model.room_id == room_id
             )
 
-            return (await session.execute(query)).scalar_one_or_none()
+            return (await session.execute(query)).mappings().one_or_none()
 
         query = sa.select(self.model).where(
             self.model.id == message_id, self.model.room_id == room_id
@@ -187,6 +184,33 @@ class RoomMessageRepository:
         await session.commit()
         await session.refresh(message)
         return message
+
+    async def delete(
+        self,
+        room_id: str,
+        message_id: str,
+        session: AsyncSession,
+    ) -> int:
+        """
+        Delete Room message(s).
+        Args:
+            conversation_id(str): The id of the converstion
+            message_id(str): The id of the message
+            room_id(str): The id of the room.
+            session (AsyncSession): The database async session object.
+        Returns:
+            int
+        """
+        query = (
+            sa.update(self.model)
+            .where(
+                self.model.room_id == room_id,
+                self.model.id == message_id,
+            )
+            .values(is_deleted=True)
+        )
+
+        return (await session.execute(query)).rowcount
 
 
 room_message_repository = RoomMessageRepository()
