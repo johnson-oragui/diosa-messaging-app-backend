@@ -3,6 +3,7 @@ Room message service module
 """
 
 import typing
+import math
 
 from fastapi import Request, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +13,7 @@ from app.dto.v1.room_message_dto import (
     SendRoomMessageRequestDto,
     RoomMessageBaseDto,
     AllRoomMessagesResponseDto,
+    RoomMessageOrderEnum,
 )
 from app.repository.v1.room_message_repository import room_message_repository
 from app.repository.v1.room_repository import room_repository
@@ -106,12 +108,70 @@ class RoomMessageService:
         return SendRoomMessageResponseDto(data=room_base_dto)
 
     async def fetch_room_messages(
-        self, request: Request, session: AsyncSession, page: int, limit: int
+        self,
+        request: Request,
+        session: AsyncSession,
+        page: int,
+        limit: int,
+        room_id: str,
+        order_by: RoomMessageOrderEnum,
     ) -> typing.Optional[AllRoomMessagesResponseDto]:
         """
-        Retrieves messages to a room
+        Retrieves all room messages.
+
+        Args:
+            request (Request): The request object.
+            session (AsyncSession): The database async session object.
+            page (int): The current page.
+            limit (int): The number of messages per page
+            room_id (str): The id of the messages to retrieve
+            order_by (str): The order of the messages to fetch (default=desc)
+        Returns:
+            AllRoomMessagesResponseDto (pydantic): The response payload
         """
-        pass
+        claims: dict = request.state.claims
+        current_user_id = claims.get("user_id", "")
+        offset = page * limit - limit
+
+        room_exists = await room_repository.fetch(session=session, room_id=room_id)
+        if not room_exists:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Room not found"
+            )
+
+        is_user_member = await room_member_repository.fetch(
+            session=session,
+            room_id=room_id,
+            member_id=current_user_id,
+            attributes=["left_room"],
+        )
+        if is_user_member is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="User not Room member"
+            )
+        if is_user_member.left_room:  # type: ignore
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="User already left room"
+            )
+
+        all_messages, count = await room_message_repository.fetch_all(
+            room_id=room_id,
+            order=order_by.value,
+            session=session,
+            offset=offset,
+        )
+
+        return AllRoomMessagesResponseDto(
+            page=page,
+            limit=limit,
+            total_pages=0 if count == 0 else math.ceil(count / limit),
+            total_messages=count,
+            data=[
+                RoomMessageBaseDto.model_validate(message, from_attributes=True)
+                for message in all_messages
+                if message
+            ],
+        )
 
 
 room_message_service = RoomMessageService()

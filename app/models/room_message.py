@@ -48,7 +48,7 @@ class RoomMessage(ModelMixin, Base):
     is_edited: Mapped[bool] = mapped_column(default=False, server_default="FALSE")
 
     # -------------------------- relationships ----------------------------
-    user: Mapped["User"] = relationship(
+    sender: Mapped["User"] = relationship(
         "User", back_populates="room_messages", uselist=False
     )
     room: Mapped["Room"] = relationship(
